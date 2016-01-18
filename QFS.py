@@ -27,6 +27,11 @@ __author__ = "P. Knobel - ESRF Data Analysis"
 __contact__ = "pierre.knobel@esrf.fr"
 __license__ = "MIT"
 __copyright__ = "European Synchrotron Radiation Facility, Grenoble, France"
+__doc__ = """
+This widget is a TreeView specialized in displaying the file system. 
+A filter can be set as a string with wildcards, to show only files whose names 
+match a specified pattern. 
+"""
 
 from PyMca5.PyMcaGui import PyMcaQt as qt
 QVERSION = qt.qVersion()
@@ -66,7 +71,7 @@ class MyTreeView(qt.QTreeView):
                 self.emitSignal(event, modelIndex)
 
                 
-class FilesystemWidget(qt.QWidget):
+class FileSystemWidget(qt.QWidget):
     '''Composite widget with a QTreeView to display a file system tree
     and a QLineEdit text field in which users can specify a filter string, 
     to display only files whose names match specified wildcard patterns.
@@ -88,6 +93,7 @@ class FilesystemWidget(qt.QWidget):
         self.treeview = MyTreeView(self) 
         self.treeview.setSortingEnabled(True)
         self.treeview.setModel(self.model)
+        self.treeview.setDragEnabled(True)
         
         grid = qt.QGridLayout(self)
         grid.setContentsMargins(0, 0, 0, 0)
@@ -178,7 +184,7 @@ def test():
         filter_strings = ['*.py', '*.pdf']
     app = qt.QApplication([])
     app.lastWindowClosed.connect(app.quit)
-    fftv = FilesystemWidget(root_path, filter_strings)
+    fftv = FileSystemWidget(root_path, filter_strings)
     def mySlot(ddict):
         print(ddict)
     fftv.sigFileSystemWidget.connect(mySlot)
