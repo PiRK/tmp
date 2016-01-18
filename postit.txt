@@ -1,0 +1,4 @@
+https://speakerdeck.com/pycon2015/olivier-grisel-build-and-test-wheel-packages-on-linux-osx-and-windows
+
+sudo apt-cache search landslide
+
