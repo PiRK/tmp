@@ -157,7 +157,8 @@ class FileSystemWidget(qt.QWidget):
         ddict['completesuffix'] = fileInfo.completeSuffix()      # ( -> tar.gz)
         ddict['suffix'] = fileInfo.suffix()                      # ( -> gz)
         ddict['size'] = fileInfo.size()                          # in bytes
-        ddict['date modified iso'] = fileInfo.lastModified().toString(qt.Qt.ISODate)
+        ddict['modified iso'] = fileInfo.lastModified().toString(
+                                                             qt.Qt.ISODate)
         
         if not "Clicked" in event: 
             ddict['mouse'] = 'None'
@@ -167,7 +168,7 @@ class FileSystemWidget(qt.QWidget):
         # retrieve file type and date as displayed in the widget 
         this_row = modelIndex.row()
         ddict['type'] = self.model.data(modelIndex.sibling(this_row, 2))
-        ddict['date modified'] = self.model.data(modelIndex.sibling(this_row, 3))
+        ddict['modified'] = self.model.data(modelIndex.sibling(this_row, 3))
                                                  
         self.sigFileSystemWidget.emit(ddict)
 
