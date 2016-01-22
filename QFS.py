@@ -36,15 +36,56 @@ match a specified pattern.
 from PyMca5.PyMcaGui import PyMcaQt as qt
 QVERSION = qt.qVersion()
 
+class FilterEntry(qt.QWidget):
+    '''
+    '''
+    #sigFilterEntry = qt.pyqtSignal(object)
+     
+    def __init__(self,label=None, filter_text=None, parent=None):
+        super(FilterEntry,self).__init__(parent)
+        layout = qt.QHBoxLayout()
+        
+        if label is None:
+            label = "File filters (space delimited with wildcards)"
+        self.label = qt.QLabel(label)
+        layout.addWidget(self.label)
+        
+        self.lineEdit = qt.QLineEdit()
+        self.lineEdit.setText(filter_text)
+        layout.addWidget(self.lineEdit)
+        
+        self.setLayout(layout)
+        
+        #self.lineEdit.textChanged.connect(self.textChangedEvent)
+        self.textChanged = self.lineEdit.textChanged
+        self.text = self.lineEdit.text
+        
+    def setText(self, text):
+        self.lineEdit.setText(text)
+        
+#     def textChangedEvent(self, e):
+#         filters = self.lineEdit.text().split()
+#         ddict = {'event': 'textChanged',
+#                  'filters': filters}
+#         self.sigFilterEntry.emit(ddict)
+
+
 class MyTreeView(qt.QTreeView):
     '''Regular QTreeView with an additional enterKeyPressed signal, 
-    to pick files by pressing Enter or Return.
+    to pick files by pressing Enter or Return, and with
+    column width auto-resizing.
     '''
     enterKeyPressed = qt.pyqtSignal()
 
     def __init__(self, parent = None):
         qt.QTreeView.__init__(self, parent)
         self._lastMouse = None
+        self.expanded.connect(self.resizeAllColumns)
+        self.collapsed.connect(self.resizeAllColumns)
+        
+    def resizeAllColumns(self):
+        for i in range(0, self.model().columnCount()):
+            self.resizeColumnToContents(i)  
 
     def keyPressEvent(self, event):
         if event.key() in [qt.Qt.Key_Enter, qt.Qt.Key_Return]:
@@ -76,36 +117,53 @@ class FileSystemWidget(qt.QWidget):
     and a QLineEdit text field in which users can specify a filter string, 
     to display only files whose names match specified wildcard patterns.
 
-    Double-clicking or pressing Enter causes a signal to be emitted to 
-    broadcast the path of the selected file. 
+    Clicking or pressing Enter causes a sigFileSystemWidget signal to be 
+    emitted to broadcast a dictionary with information about the selected 
+    file. 
     '''  
     sigFileSystemWidget = qt.pyqtSignal(object)
     
-    def __init__(self, root_path, filter_strings=None, parent=None):
+    def __init__(self, root_path, filter_strings=None, 
+                 autosize_tree_columns=True, hide_filter_entry=False,
+                 parent=None):
+        '''
+        :param root_path: Root path for both the TreeView and FileSystemModel
+        :type root_path: string
+        :param filter_strings: List of wildcard strings. When set, only files 
+                               whose names match at least one filter are 
+                               displayed.
+        :type filter_strings: list of strings default None
+        :param autosize_tree_columns: Flag to indicate if treeView columns are
+                                      to be autosized dynamically 
+        :type autosize_tree_columns: boolean default True
+        :param hide_filter_entry: Flag to hide filter entry widget.
+        :type hide_filter_entry: boolean default False
+        '''
+        self.autosize_tree_columns = autosize_tree_columns
+        
         qt.QWidget.__init__(self, parent)
-
-        self.label  = qt.QLabel("File filters: ", self)
-        self.textbox = qt.QLineEdit(self)
+        layout = qt.QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        
+        self.filterEntry = FilterEntry()
         if not filter_strings is None:
-            self.textbox.setText(' '.join(filter_strings))
+            self.filterEntry.setText(' '.join(filter_strings))
+        layout.addWidget(self.filterEntry)
+        if hide_filter_entry:
+            self.hideFilterEntry()
           
         self.model = qt.QFileSystemModel()
         self.treeview = MyTreeView(self) 
         self.treeview.setSortingEnabled(True)
         self.treeview.setModel(self.model)
         self.treeview.setDragEnabled(True)
-        
-        grid = qt.QGridLayout(self)
-        grid.setContentsMargins(0, 0, 0, 0)
-        grid.setSpacing(0)
-        grid.addWidget(self.label, 0, 0)
-        grid.addWidget(self.textbox, 0, 1)
-        grid.addWidget(self.treeview, 1, 0, 1, 2)
+        layout.addWidget(self.treeview)
 
         self.setFilters()
         self.setRootPath(root_path)
 
-        self.textbox.textChanged.connect(self.setFilters)
+        self.filterEntry.textChanged.connect(self.setFilters)
         self.treeview.clicked.connect(self.itemClicked)
         self.treeview.doubleClicked.connect(self.itemDoubleClicked)
         self.treeview.enterKeyPressed.connect(self.itemEnterPressed)
@@ -121,9 +179,18 @@ class FileSystemWidget(qt.QWidget):
         Example: 
             *.py image[0-9][0-9][0-9].png *_???.pdf
         '''
-        filter_strings = self.textbox.text().split()
+        filter_strings = self.filterEntry.text().split()
         self.model.setNameFilters(filter_strings)
         self.model.setNameFilterDisables(False)
+     
+        if self.autosize_tree_columns:
+            self.treeview.resizeAllColumns()
+            
+    def showFilterEntry(self):
+        self.filterEntry.show()
+        
+    def hideFilterEntry(self):
+        self.filterEntry.hide()
         
     def itemClicked(self, modelIndex):
         '''
