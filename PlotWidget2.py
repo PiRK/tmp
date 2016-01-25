@@ -33,6 +33,9 @@ __doc__ = """
 This module provides an overloaded :class:PlotWidget supporting drag and drop. 
 """
 
+#TODO: don't subclass PlotWidget, just include it in a QWidget that takes care 
+#      of our dropEvent
+
 import csv
 from PyMca5.PyMcaGui.plotting.PlotWidget import PlotWidget
 
