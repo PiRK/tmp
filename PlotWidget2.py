@@ -38,6 +38,7 @@ This module provides an overloaded :class:PlotWidget supporting drag and drop.
 
 import csv
 from PyMca5.PyMcaGui.plotting.PlotWidget import PlotWidget
+from PyMca5.PyMcaGui import PyMcaQt as qt
 
 DEBUG=False
 
@@ -134,7 +135,7 @@ class PlotWidget2(PlotWidget):
     def __init__(self, parent=None, backend=None,
                  legends=False, callback=None, **kw):
         PlotWidget.__init__(self, parent, backend,
-                                                     legends, callback, **kw)
+                            legends, callback, **kw)
         self.setAcceptDrops(True)
         
     def dragEnterEvent(self, e):
@@ -156,6 +157,19 @@ class PlotWidget2(PlotWidget):
             (xhdr, yhdrs) = (hdrs[0], hdrs[1:])
             for (y, yhdr) in zip(ys, yhdrs):
                 self.addCurve(x, y, legend=yhdr, xlabel=xhdr, ylabel=yhdr)
+                
+    def keyPressEvent(self, event):
+        if (event.modifiers() & qt.Qt.ShiftModifier) and (event.modifiers() & qt.Qt.ControlModifier):
+            if event.key() == qt.Qt.Key_C:
+                #print("Shift + Ctrl + C pressed")
+                self.renderToClipboard()
+        PlotWidget.keyPressEvent(self, event)
+                
+    def renderToClipboard(self):
+        pixmap = qt.QPixmap(self.size())
+        self.render(pixmap)
+        qt.QApplication.clipboard().setPixmap(pixmap)
+        
             
 if __name__ == "__main__":
     import time
