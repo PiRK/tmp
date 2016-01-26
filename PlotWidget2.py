@@ -155,8 +155,9 @@ class PlotWidget2(qt.QWidget):
             if e.mimeData().urls()[0].path().lower().endswith('.csv'):
                 data_file_path = e.mimeData().urls()[0].path()
         if data_file_path is not None:
-            if sys.platform.startswith("win") and data_file_path.startswith("/") \
-               and ":/" in data_file_path.startswith("/") :
+            if sys.platform.startswith("win") and \
+               data_file_path.startswith("/") and \
+               ":/" in data_file_path:
                 data_file_path = data_file_path[1:]              
             data = CSVData(data_file_path)
             x = data.get_xcol(0)
