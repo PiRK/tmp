@@ -72,6 +72,7 @@ class CSVData():
     def get_ycols(self, columns=None):
         '''
         Returns a list of lists, each containing data for a column.
+        
         :param columns: List of indexes of data columns to be retrieved. 
                         The first column has index 0.
         :type columns: list of int or None
