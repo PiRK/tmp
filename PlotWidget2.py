@@ -37,10 +37,10 @@ This module provides an overloaded :class:PlotWidget supporting drag and drop.
 #      of our dropEvent
 
 import csv
+import sys
+
 from PyMca5.PyMcaGui.plotting.PlotWidget import PlotWidget
 from PyMca5.PyMcaGui import PyMcaQt as qt
-
-DEBUG=False
 
 class CSVData():
     '''This class parses CSV data files.'''
@@ -68,8 +68,6 @@ class CSVData():
             self.data_rows = []
             for row in reader:
                 self.data_rows.append([float(value) for value in row])
-            if DEBUG:
-                print(self.data_rows)
                 
     def get_ycols(self, columns=None):
         '''
@@ -126,7 +124,7 @@ class CSVData():
         '''
         return self.hdrs[column_index]
 
-class PlotWidget2(PlotWidget):
+class PlotWidget2(qt.QWidget):
     """This widget overloads PlotWidget with methods enabling drag and drop 
     of data files into this widget. At the moment, only CSV files are supported.
     The first column will be assumed to be data for the x axis. All other columns
@@ -134,8 +132,16 @@ class PlotWidget2(PlotWidget):
     """
     def __init__(self, parent=None, backend=None,
                  legends=False, callback=None, **kw):
-        PlotWidget.__init__(self, parent, backend,
-                            legends, callback, **kw)
+        qt.QWidget.__init__(self, parent)
+        
+        layout = qt.QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        
+        self.plotwidget = PlotWidget(self, backend,
+                                legends, callback, **kw)
+        layout.addWidget(self.plotwidget)
+        
         self.setAcceptDrops(True)
         
     def dragEnterEvent(self, e):
@@ -149,21 +155,23 @@ class PlotWidget2(PlotWidget):
             if e.mimeData().urls()[0].path().lower().endswith('.csv'):
                 data_file_path = e.mimeData().urls()[0].path()
         if data_file_path is not None:
+            if sys.platform.startswith("win") and data_file_path.startswith("/") \
+               and ":/" in data_file_path.startswith("/") :
+                data_file_path = data_file_path[1:]              
             data = CSVData(data_file_path)
-            print(data.get_hdrs())
             x = data.get_xcol(0)
             ys = data.get_ycols()
             hdrs = data.get_hdrs()
             (xhdr, yhdrs) = (hdrs[0], hdrs[1:])
             for (y, yhdr) in zip(ys, yhdrs):
-                self.addCurve(x, y, legend=yhdr, xlabel=xhdr, ylabel=yhdr)
+                self.plotwidget.addCurve(x, y, legend=yhdr, xlabel=xhdr, ylabel=yhdr)
                 
     def keyPressEvent(self, event):
         if (event.modifiers() & qt.Qt.ShiftModifier) and (event.modifiers() & qt.Qt.ControlModifier):
             if event.key() == qt.Qt.Key_C:
                 #print("Shift + Ctrl + C pressed")
                 self.renderToClipboard()
-        PlotWidget.keyPressEvent(self, event)
+        qt.QWidget.keyPressEvent(self, event)
                 
     def renderToClipboard(self):
         pixmap = qt.QPixmap(self.size())
@@ -197,7 +205,7 @@ if __name__ == "__main__":
         time.sleep(1)
     app = qt.QApplication([])
     plot = PlotWidget2(None, backend=backend, legends=True)
-    plot.setPanWithArrowKeys(True)
+    plot.plotwidget.setPanWithArrowKeys(True)
     plot.show()
     app.exec_()
 
