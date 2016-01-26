@@ -122,16 +122,16 @@ class MyTreeView(qt.QTreeView):
                 self.emitSignal(event, modelIndex)
 
                 
-class FileSystemWidget(qt.QWidget):
+class FileSystemTree(qt.QWidget):
     '''Composite widget with a QTreeView to display a file system tree
     and a QLineEdit text field in which users can specify a filter string, 
     to display only files whose names match specified wildcard patterns.
 
-    Clicking or pressing Enter causes a sigFileSystemWidget signal to be 
+    Clicking or pressing Enter causes a sigFileSystemTree signal to be 
     emitted to broadcast a dictionary with information about the selected 
     file. 
     '''  
-    sigFileSystemWidget = qt.pyqtSignal(object)
+    sigFileSystemTree = qt.pyqtSignal(object)
     
     def __init__(self, root_path=None, filter_strings=None, 
                  autosize_tree_columns=True, hide_filter_entry=False,
@@ -242,7 +242,7 @@ class FileSystemWidget(qt.QWidget):
         self.emitSignal(event, modelIndex)
 
     def emitSignal(self, event, modelIndex):
-        '''Emits a sigFileSystemWidget signal to broadcast a dictionary of 
+        '''Emits a sigFileSystemTree signal to broadcast a dictionary of 
         information about the selected item in the TreeView.
         :param modelIndex: Index within the QFileSystemModel of the item
                            selected when this method was called.
@@ -275,7 +275,7 @@ class FileSystemWidget(qt.QWidget):
         ddict['type'] = self.model.data(modelIndex.sibling(this_row, 2))
         ddict['modified'] = self.model.data(modelIndex.sibling(this_row, 3))
                                                  
-        self.sigFileSystemWidget.emit(ddict)
+        self.sigFileSystemTree.emit(ddict)
 
         
 def test():
@@ -288,14 +288,14 @@ def test():
         if not os.path.isdir(root_path):
             raise IndexError
         filter_strings = sys.argv[2:]
-        fftv = FileSystemWidget(root_path, filter_strings)
+        fftv = FileSystemTree(root_path, filter_strings)
     except IndexError:
-        fftv = FileSystemWidget()
+        fftv = FileSystemTree()
     
     def mySlot(ddict):
         print(ddict)
         
-    fftv.sigFileSystemWidget.connect(mySlot)
+    fftv.sigFileSystemTree.connect(mySlot)
     fftv.show()
     app.exec_()
 
