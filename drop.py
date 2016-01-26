@@ -20,8 +20,14 @@ class MyListWidget(qt.QListWidget):
       event.acceptProposedAction()
     elif event.mimeData().hasText():
       self.addItem(event.mimeData().text())
-    else:
-      super(MyListWidget,self).dropEvent(event)
+    
+    print(event)
+    print(event.__dict__)
+    print(dir(event))
+    print(event.mimeData())
+    print(event.mimeData().__dict__)
+    print(dir(event.mimeData()))
+      
 
 class MyWindow(qt.QWidget):
   def __init__(self):
