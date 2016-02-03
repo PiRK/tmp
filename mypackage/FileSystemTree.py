@@ -1,5 +1,5 @@
 #/*##########################################################################
-# Copyright (C) 2004-2015 European Synchrotron Radiation Facility, Grenoble, France
+# Copyright (C) 2004-2016 European Synchrotron Radiation Facility, Grenoble, France
 #
 # This file is part of the PyMca X-ray Fluorescence Toolkit developed at
 # the ESRF by the Software group.
@@ -28,11 +28,12 @@ __contact__ = "pierre.knobel@esrf.fr"
 __license__ = "MIT"
 __copyright__ = "European Synchrotron Radiation Facility, Grenoble, France"
 __doc__ = """
-This module provides a TreeView specialized in displaying the file system. 
-A filter can be set as a string with wildcards, to show only files whose names 
-match a specified pattern. 
+This module provides a TreeView specialized in displaying the file system.
+A filter can be set as a string with wildcards, to show only files whose names
+match a specified pattern.
 
-It has nothing to do with the DFT :math:`X_k = \sum_{n=0}^{N-1} x_n e^{-{i 2\pi n / N}}`, 
+It has nothing to do with the DFT
+:math:`X_k = \sum_{n=0}^{N-1} x_n e^{-{i 2\pi n / N}}`,
 I'm only mentioning it to test the *LaTeX* math syntax in rST.
 
 Classes
@@ -44,17 +45,18 @@ Classes
 
 """
 
-#TODO: improve docstrings
+# TODO: improve docstrings
 
 from PyMca5.PyMcaGui import PyMcaQt as qt
 import os
 
 QVERSION = qt.qVersion()
 
+
 class LabelEntry(qt.QWidget):
     '''
     Composite widget with a label and a :class:`QLineEdit` text field.
-    
+
     :param label_text: Text displayed on the label on the left hand side.
                        If set to None, it defaults to "File filters"
     :type label_text: string or None
@@ -63,34 +65,33 @@ class LabelEntry(qt.QWidget):
     :param parent: Parent widget
     :type parent: :class:`QWidget` or None
     '''
-    #sigLabelEntry = qt.pyqtSignal(object)
-     
-    def __init__(self,label_text=None, entry_text='', parent=None):
-        super(LabelEntry,self).__init__(parent)
+
+    def __init__(self, label_text=None, entry_text='', parent=None):
+        super(LabelEntry, self).__init__(parent)
         layout = qt.QHBoxLayout()
-        
+
         if label_text is None:
             label_text = "File filters"
         self.label = qt.QLabel(label_text)
         layout.addWidget(self.label)
-        
+
         self.lineEdit = qt.QLineEdit()
         self.lineEdit.setText(entry_text)
         layout.addWidget(self.lineEdit)
-        
+
         self.setLayout(layout)
-        
-        # inherit from main QLineEdit signals, methods and attributes 
+
+        # inherit from main QLineEdit signals, methods and attributes
         self.textChanged = self.lineEdit.textChanged
         self.text = self.lineEdit.text
         self.setText = self.lineEdit.setText
-        
+
 
 class MyTreeView(qt.QTreeView):
     '''Regular :class:`QTreeView` with an additional enterKeyPressed signal, 
     to pick files by pressing Enter or Return, and with
     column width auto-resizing.
-    
+
     :param auto_resize: Tree column auto-resizing behavior on folder expansion. 
     :type auto_resize: boolean default True
     :param parent: Parent widget
@@ -98,16 +99,16 @@ class MyTreeView(qt.QTreeView):
     '''
     enterKeyPressed = qt.pyqtSignal()
 
-    def __init__(self, parent = None, auto_resize=True):
+    def __init__(self, parent=None, auto_resize=True):
         qt.QTreeView.__init__(self, parent)
         self._lastMouse = None
         if auto_resize:
             self.expanded.connect(self.resizeAllColumns)
             self.collapsed.connect(self.resizeAllColumns)
-        
+
     def resizeAllColumns(self):
         for i in range(0, self.model().columnCount()):
-            self.resizeColumnToContents(i)  
+            self.resizeColumnToContents(i)
 
     def keyPressEvent(self, event):
         if event.key() in [qt.Qt.Key_Enter, qt.Qt.Key_Return]:
@@ -126,17 +127,17 @@ class MyTreeView(qt.QTreeView):
         elif button == qt.Qt.MidButton:
             self._lastMouse = "middle"
         else:
-            #Should I set it to no button?
+            # Should I set it to no button?
             self._lastMouse = "left"
         qt.QTreeView.mousePressEvent(self, event)
         if self._lastMouse != "left":
             # Qt5 only sends itemClicked on left button mouse click
-            if QVERSION > "5":  
+            if QVERSION > "5":
                 event = "itemClicked"
                 modelIndex = self.indexAt(e.pos())
                 self.emitSignal(event, modelIndex)
 
-                
+
 class FileSystemTree(qt.QWidget):
     '''Composite widget with a :class:`QTreeView` to display a file system tree
     and a :class:`QLineEdit` text field in which users can specify a filter string, 
@@ -145,7 +146,7 @@ class FileSystemTree(qt.QWidget):
     Clicking or pressing Enter causes a sigFileSystemTree signal to be 
     emitted to broadcast a dictionary with information about the selected 
     file. 
-    
+
     :param root_path: Root path for both the TreeView and FileSystemModel.
                       If unspecified or None, it will be set to the current
                       working directory.
@@ -159,64 +160,64 @@ class FileSystemTree(qt.QWidget):
     :type autosize_tree_columns: boolean default True
     :param hide_filter_entry: Flag to hide filter entry widget.
     :type hide_filter_entry: boolean default False
-    '''  
-    
+    '''
+
     sigFileSystemTree = qt.pyqtSignal(object)
     """Signal emitted when clicking or pressing the ``Enter`` key. It 
     broadcasts a dictionary of information about the event and the 
     selected item.
-    
+
     Dictionary keys:
-    
+       
     - ``event``
     - ``name``
     - ``path``
     - ``basename``
     - ``completebasename``
     - ...
-    
-    The `main function`_ function illustrates how to access this dictionary."""
-    
-    def __init__(self, root_path=None, filter_strings=None, 
+
+    The :func:`main` function illustrates how to access this dictionary."""
+
+    def __init__(self, root_path=None, filter_strings=None,
                  autosize_tree_columns=True, hide_filter_entry=False,
                  parent=None):
         self.autosize_tree_columns = autosize_tree_columns
-        
+
         qt.QWidget.__init__(self, parent)
         layout = qt.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-        
+
         self.filterEntry = LabelEntry()
         if not filter_strings is None:
             self.filterEntry.setText(' '.join(filter_strings))
         layout.addWidget(self.filterEntry)
         if hide_filter_entry:
             self.hideFilterEntry()
-          
+
         self.model = qt.QFileSystemModel()
-        self.treeview = MyTreeView(self) 
+        self.treeview = MyTreeView(self)
         self.treeview.setSortingEnabled(True)
         self.treeview.setModel(self.model)
         self.treeview.setDragEnabled(True)
         layout.addWidget(self.treeview)
 
         self.setFilters()
-        
+
         if root_path is None:
             root_path = os.getcwd()
-            #root_path = os.path.expanduser('~')  
+            #root_path = os.path.expanduser('~')
         self.setRootPath(root_path)
 
         self.filterEntry.textChanged.connect(self.setFilters)
         self.treeview.clicked.connect(self.itemClicked)
         self.treeview.doubleClicked.connect(self.itemDoubleClicked)
         self.treeview.enterKeyPressed.connect(self.itemEnterPressed)
-               
+
     def setRootPath(self, root_path):
         '''Set the root path for the :class:`QFileSystemModel` and 
         the :class:`QTreeView`.
-        
+
         :param root_path: Root path. 
         :type root_path: string
         '''
@@ -227,26 +228,26 @@ class FileSystemTree(qt.QWidget):
         '''Set filters for files to display in the treeview
         widget. The filters can be specified in a :class:`QLineEdit` field as
         whitespace delimited wildcard strings.
-        
+
         Example::
-        
+
             *.py image[0-9][0-9][0-9].png *_???.pdf
         '''
         filter_strings = self.filterEntry.text().split()
         self.model.setNameFilters(filter_strings)
         self.model.setNameFilterDisables(False)
-     
+
         if self.autosize_tree_columns:
             self.treeview.resizeAllColumns()
-            
+
     def showFilterEntry(self):
         '''Show the text entry widget to enable users to define filters.'''
         self.filterEntry.show()
-        
+
     def hideFilterEntry(self):
         '''Hide the text entry widget.'''
         self.filterEntry.hide()
-        
+
     def itemClicked(self, modelIndex):
         '''
         :param modelIndex: Index within the :class:`QFileSystemModel` of the 
@@ -255,7 +256,7 @@ class FileSystemTree(qt.QWidget):
         '''
         event = "itemClicked"
         self.emitSignal(event, modelIndex)
-        
+
     def itemDoubleClicked(self, modelIndex):
         '''
         :param modelIndex: Index within the QFileSystemModel of the 
@@ -264,7 +265,7 @@ class FileSystemTree(qt.QWidget):
         '''
         event = "itemDoubleClicked"
         self.emitSignal(event, modelIndex)
-            
+
     def itemEnterPressed(self):
         '''
         :param modelIndex: Index within the QFileSystemModel of the item
@@ -278,13 +279,13 @@ class FileSystemTree(qt.QWidget):
     def emitSignal(self, event, modelIndex):
         '''Emits a ``sigFileSystemTree`` signal to broadcast a dictionary of 
         information about the selected item in the TreeView.
-        
+
         :param modelIndex: Index within the QFileSystemModel of the item
                            selected when this method was called.
         :type modelIndex: QModelIndex
         :param event: Type of event that caused this method to be called: 
-                      "itemEnterKeyPressed", "itemDoubleClicked" or 
-                      "itemClicked"
+                      ``itemEnterKeyPressed``, ``itemDoubleClicked`` or 
+                      ``itemClicked``
         :type event: string
         '''
         fileInfo = self.model.fileInfo(modelIndex)
@@ -292,39 +293,36 @@ class FileSystemTree(qt.QWidget):
         ddict['event'] = event
         ddict['name'] = fileInfo.fileName()
         ddict['path'] = fileInfo.absoluteFilePath()
-        ddict['basename'] = fileInfo.baseName()                  # (a.tar.gz -> a)
+        ddict['basename'] = fileInfo.baseName()          # (a.tar.gz -> a)
         ddict['completebasename'] = fileInfo.completeBaseName()  # ( -> a.tar)
         ddict['completesuffix'] = fileInfo.completeSuffix()      # ( -> tar.gz)
         ddict['suffix'] = fileInfo.suffix()                      # ( -> gz)
         ddict['size'] = fileInfo.size()                          # in bytes
         ddict['modified iso'] = fileInfo.lastModified().toString(
-                                                             qt.Qt.ISODate)
-        
-        if not "Clicked" in event: 
+            qt.Qt.ISODate)
+        if not "Clicked" in event:
             ddict['mouse'] = 'None'
         else:
             ddict['mouse'] = self.treeview._lastMouse * 1
-            
-        # retrieve file type and date as displayed in the widget 
+
+        # retrieve file type and date as displayed in the widget
         this_row = modelIndex.row()
         ddict['type'] = self.model.data(modelIndex.sibling(this_row, 2))
         ddict['modified'] = self.model.data(modelIndex.sibling(this_row, 3))
-                                                 
+
         self.sigFileSystemTree.emit(ddict)
 
-        
+
 def main():
     '''
-    .. _main function:
-    
     Example of how to use FileSystemTree
-    
+
     .. code-block:: python
-    
+
        import os.path, sys
        app = qt.QApplication([])
        app.lastWindowClosed.connect(app.quit)
-       
+
        try:
            root_path = sys.argv[1]
            if not os.path.isdir(root_path):
@@ -333,18 +331,19 @@ def main():
            fftv = FileSystemTree(root_path, filter_strings)
        except IndexError:
            fftv = FileSystemTree()
-       
+
        def mySlot(ddict):
            print(ddict)
-        
+
        fftv.sigFileSystemTree.connect(mySlot)
        fftv.show()
        app.exec_()
     '''
-    import os.path, sys
+    import os.path
+    import sys
     app = qt.QApplication([])
     app.lastWindowClosed.connect(app.quit)
-    
+
     try:
         root_path = sys.argv[1]
         if not os.path.isdir(root_path):
@@ -353,10 +352,10 @@ def main():
         fftv = FileSystemTree(root_path, filter_strings)
     except IndexError:
         fftv = FileSystemTree()
-    
+
     def mySlot(ddict):
         print(ddict)
-        
+
     fftv.sigFileSystemTree.connect(mySlot)
     fftv.show()
     app.exec_()
