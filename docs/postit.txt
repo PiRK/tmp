@@ -5,11 +5,14 @@ sudo apt-cache search landslide
 
 
 
-# compilation bibliothèque C
+# compilation bibliothèque C Dynamique
 knobel@pierre:~/workspace/training/mypackage$ gcc -Wall -c -fPIC mymax.c -o mymax.o
 knobel@pierre:~/workspace/training/mypackage$ gcc -shared -Wl,-soname,libmymax.so mymax.o -o libmymax.so
 knobel@pierre:~/workspace/training/mypackage$ gcc -Wall -L./ -lmymax hello.c -o hello
 knobel@pierre:~/workspace/training/mypackage$ export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/home/knobel/workspace/training/mypackage"
 knobel@pierre:~/workspace/training/mypackage$ ./hello
 
-
+ou alors ?: Statique
+ gcc -o hello.o -c hello.c -W -Wall -ansi -pedantic
+ gcc -o mymax.o -c mymax.c -W -Wall -ansi -pedantic
+ gcc -o hello hello.o mymax.o
