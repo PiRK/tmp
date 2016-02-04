@@ -16,3 +16,10 @@ ou alors ?: Statique
  gcc -o hello.o -c hello.c -W -Wall -ansi -pedantic
  gcc -o mymax.o -c mymax.c -W -Wall -ansi -pedantic
  gcc -o hello hello.o mymax.o
+
+ 
+ 
+ 
+ 
+ cp build/lib.linux-x86_64-2.7/mymax.so  .
+ 

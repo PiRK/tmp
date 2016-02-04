@@ -1,8 +1,10 @@
 #include "mymax.h"
-float mymax(float num1, float num2)
+float cmax(float num1, float num2)
 {
     /* local variable declaration */
     float result;
+
+    printf("print from c function\n");
 
     if (num1 > num2)
         result = num1;

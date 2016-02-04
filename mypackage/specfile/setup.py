@@ -27,8 +27,8 @@
 # THE SOFTWARE.
 #
 #############################################################################*/
-__author__ = "V.A. Sole - ESRF Data Analysis"
-__contact__ = "sole@esrf.fr"
+__author__ = "P. Knobel - ESRF Data Analysis"
+__contact__ = "pierre.knobel@esrf.fr"
 __license__ = "MIT"
 __copyright__ = "European Synchrotron Radiation Facility, Grenoble, France"
 __doc__="""Setup script for the SPECFILE module distribution."""
@@ -43,6 +43,7 @@ except ImportError:
 
 from distutils.core import setup
 from distutils.extension import Extension
+from Cython.Distutils import build_ext
 
 SPECFILE_USE_GNU_SOURCE = os.getenv("SPECFILE_USE_GNU_SOURCE")
 if SPECFILE_USE_GNU_SOURCE is None:
@@ -58,14 +59,13 @@ else:
 
 
 srcfiles = [ 'sfheader','sfinit','sflists','sfdata','sfindex',
-             'sflabel' ,'sfmca', 'sftools','locale_management','specfile_py']
-
-if sys.version >= '3.0':
-    srcfiles[-1] += '3'
+             'sflabel' ,'sfmca', 'sftools','locale_management']
 
 sources = []
 for ffile in srcfiles:
   sources.append('src/'+ffile+'.c')
+  
+sources.append('specfile.pyx')
 
 if sys.platform == "win32":
     define_macros = [('WIN32',None)]
@@ -81,19 +81,17 @@ elif os.name.lower().startswith('posix'):
         define_macros = [('_GNU_SOURCE', 1)]
 else:
     define_macros = []
-setup (
-        name         = "specfile",
-        version      = "3.2",
-        description  = "module to read SPEC datafiles",
-        author       = "BLISS Group",
-        author_email = "rey@esrf.fr",
-        url          = "http://www.esrf.fr/computing/bliss/",
-        ext_modules  = [
-                       Extension(
-                            name          = 'specfile',
-                            sources       = sources,
-                            define_macros = define_macros,
-                            include_dirs  = ['include', numpy.get_include()],
-                       ),
-       ],
-)
+setup(name         = "specfile", 
+      version      = "3.2",
+      description  = "module to read SPEC datafiles",
+      author       = "BLISS Group",
+      author_email = "rey@esrf.fr",
+      url          = "http://www.esrf.fr/UsersAndScience/Experiments/TBS/BLISS",
+      ext_modules  = [Extension(
+                         name          = 'specfile',
+                         sources       = sources,
+                         define_macros = define_macros,
+                         include_dirs  = ['include', numpy.get_include()]
+                         )
+                     ], 
+      cmdclass={'build_ext': build_ext})

@@ -6,11 +6,12 @@ from Cython.Distutils import build_ext
 
 my_dir = os.path.dirname(os.path.abspath(__file__))   # setup.py dir
 include_dirs = [os.path.join(my_dir, "cstuff")]       # .h dir
+
 sources = [os.path.join(my_dir, "cstuff", "mymax.c"), # .c 
            os.path.join(my_dir, "mymax_.pyx"),        # .pyx  
            ]
 
-cy_mod=Extension("mymax",                     # module name (from mymax import cmax)
+cy_mod=Extension("mypackage.mymax",                     # module name ('from mymax import pymax')
               sources=sources,
               language="c",
               include_dirs=include_dirs,
