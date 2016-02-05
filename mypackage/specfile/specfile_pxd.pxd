@@ -11,5 +11,6 @@ cdef extern from "SpecFile.h":
     long SfScanNo(SpecFile*)
     int SfClose(SpecFile*)
     int SfData(SpecFile*, long, double***, long**, int*)
+    long *SfList(SpecFile*, int*)
     
 
