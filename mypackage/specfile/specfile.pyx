@@ -72,7 +72,8 @@ cdef class PySpecFile(object):
             double** mydata
             long* data_info
             long long_scan_no = scan_no
-            #long nlines, ncolumns, regular
+            int i, j
+            long nlines, ncolumns, regular
             
         sfdata_error = SfData(self._sf, 
                               long_scan_no, 
@@ -87,11 +88,11 @@ cdef class PySpecFile(object):
         ncolumns = data_info[1]
         regular = data_info[2]
         
-        ret_array = numpy.empty((nlines, ncolumns), dtype=numpy.double)
+        cdef numpy.ndarray ret_array = numpy.empty((nlines, ncolumns), 
+                                                   dtype=numpy.double)
         for i in range(nlines):
             for j in range(ncolumns):
-                ret_array[i, j] = mydata[i][j]
-        
+                ret_array[i, j] = mydata[i][j]        
         
         # Alternative 2  (obscure compilation  error message  compilation: expected identifier or ‘(’ before numeric constant)
         #cdef double **ret_array = <double **>malloc(nlines * sizeof(double *))
