@@ -1,4 +1,40 @@
+#/*##########################################################################
+# Copyright (C) 2004-2016 European Synchrotron Radiation Facility, Grenoble, France
+#
+# This file is part of the PyMca X-ray Fluorescence Toolkit developed at
+# the ESRF by the Software group.
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+#
+#############################################################################*/
+__author__ = "P. Knobel - ESRF Data Analysis"
+__contact__ = "pierre.knobel@esrf.fr"
+__license__ = "MIT"
+__copyright__ = "European Synchrotron Radiation Facility, Grenoble, France"
+__doc__ = """
+This module is a cython binding to wrap the C-library SpecFile.
 
+Classes
+=======
+
+- :class:`PySpecFile`
+"""
 cimport cython
 
 from libc.stdlib cimport free, malloc
@@ -51,23 +87,55 @@ from specfile_pxd cimport *
 
 
 cdef class PySpecFile(object):
+    '''
+    Accessing SpecFiles
+
+    :param filename: Path of the SpecFile to read
+    :type label_text: string
+    '''
     cdef SpecFile *_sf
     cdef int _error
+   
     
     def __init__(self, filename):
         self._sf =  SfOpen(filename, &self._error)
+        # It seems dealloc is called in previous line when
+        # passing an invalid file name.
+        # Therefore, error handling is done in __dealloc__
+        # But this seems to be ignored, and causes errors explicitly ignored 
+        # to be raised during destruction (invalid scan...)
 
     def __len__(self):
-        '''returns number of scans'''
+        '''returns number of scans in the SpecFile'''
         return SfScanNo(self._sf)
 
     def __dealloc__(self):
+        '''Destructor: Calls SfClose(self._sf)'''
         #TODO check what to do with returned value
-        print(" Passing by")
+        print(" Passing by destructor")
         if SfClose(self._sf):
             print(" ERROR cleaning up")
+        if self._error:
+            raise IOError(self.get_error_string())
             
     def data(self, scan_no):
+        '''Returns data and metadata for the specified scan number.
+        
+        :param scan_no: Scan number to return. 
+        :type scan_no: int
+        :return: ret_array
+        :rtype: numpy.ndarray 
+        
+        Example:
+        --------
+        
+        .. code-block:: python
+            
+            from specfile import PySpecFile
+            sf = PySpecFile("t.dat")
+            sfdata = sf.data(2)
+            nlines, ncolumns = sfdata.shape
+        '''        
         cdef: 
             double** mydata
             long* data_info
@@ -80,9 +148,9 @@ cdef class PySpecFile(object):
                               &mydata, 
                               &data_info, 
                               &self._error)
-          
+                  
         if sfdata_error:
-            print("error ", str(sfdata_error)) #TODO: handle error
+            raise IOError(self.get_error_string())
         
         nlines = data_info[0] 
         ncolumns = data_info[1]
@@ -94,25 +162,31 @@ cdef class PySpecFile(object):
             for j in range(ncolumns):
                 ret_array[i, j] = mydata[i][j]        
         
-        # Alternative 2  (obscure compilation  error message  compilation: expected identifier or ‘(’ before numeric constant)
-        #cdef double **ret_array = <double **>malloc(nlines * sizeof(double *))
-        #for i in range(ncolumns):
-        #    ret_array[i] = <double *>malloc(ncolumns * sizeof(double))
-        #ret_array = numpy.empty((nlines, ncolumns), dtype=numpy.double)
-        #cdef double[:, :] c_array = ret_array
-        #memcpy(ret_array, 
-        #       mydata, 
-        #       nlines * ncolumns * sizeof(double))
-        
-        # Alternative 3: error message Pointer base type does not match cython.array base type
-        #ret_array = numpy.asarray(<numpy.double_t[:nlines, :ncolumns]> mydata)
-
         free(mydata)
         free(data_info)
         
-        return (nlines, ncolumns, regular), ret_array
+        # nlines and ncolumns can be accessed as ret_array.shape
+        #return (nlines, ncolumns, regular), ret_array
+        return ret_array
 
     def list(self):
+        '''Returns list (1D numpy array) of scan indexes in SpecFile.
+                
+        :param scan_no: Scan number to return. 
+        :type scan_no: int
+        :return: retArray
+        :rtype: numpy array 
+        
+        Example:
+        --------
+        
+        .. code-block:: python
+            
+            from specfile import PySpecFile
+            sf = PySpecFile("t.dat")
+            sfdata = sf.data(2)
+            nlines, ncolumns = sfdata.shape
+        '''    
         cdef long *indexes
         indexes = SfList(self._sf, &self._error)
         n_indexes = len(self)
@@ -121,5 +195,15 @@ cdef class PySpecFile(object):
             retArray[i] = indexes[i]
         free(indexes)
         return retArray
+    
+    def get_error_string(self):
+        '''Updates the error message according to an error code.
+        
+        :param code: Error code 
+        :type code: int
+        '''    
+        
+        return (<bytes> SfError(self._error)).encode('utf-8)') 
+    
     
    
