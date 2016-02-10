@@ -11,6 +11,9 @@ print("#N in scan 2: " + str(sf.columns(2)))
 print("#S in scan 2: " + sf.command(2))
 
 print("Scan index of scan 3.1: " + str(sf.index(3)))
+print("Scan number of 4th scan: " + str(sf.number(4)))
+print("Scan order of 4th scan: " + str(sf.order(4)))
+
 
 try:
     sf.index(3, 2)  #scan 3.2 doesn't exist

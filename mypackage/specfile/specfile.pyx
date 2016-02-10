@@ -188,7 +188,7 @@ cdef class SpecFile(object):
         :returns: User defined scan number.
         :rtype: int
         '''
-        idx = SfIndex(self.handle, scan_number, scan_order)
+        idx = SfNumber(self.handle, scan_index)
         if idx == -1:
             self._error = SF_ERR_SCAN_NOT_FOUND
             raise IOError(self.get_error_string())
@@ -203,7 +203,7 @@ cdef class SpecFile(object):
                  non-unique occurrence of a scan number is encountered).
         :rtype: int
         '''
-        ordr = SfOrder(self.handle, scan_number, scan_order)
+        ordr = SfOrder(self.handle, scan_index)
         if ordr == -1:
             self._error = SF_ERR_SCAN_NOT_FOUND
             raise IOError(self.get_error_string())
