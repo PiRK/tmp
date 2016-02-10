@@ -208,12 +208,50 @@ cdef class SpecFile(object):
             self._error = SF_ERR_SCAN_NOT_FOUND
             raise IOError(self.get_error_string())
         return ordr
+                
+    def list(self): 
+        '''Returns list (1D numpy array) of scan indices in SpecFile.
+         
+        :return: list of unique sequential indices of scans 
+        :rtype: numpy array 
+        '''    
+        cdef long *indexes
+        indexes = SfList(self.handle, &self._error)
+        
+        if self._error:
+            raise IOError(self.get_error_string())
+        
+        n_indexes = len(self)
+        retArray = numpy.empty((n_indexes,),dtype=numpy.int)
+        for i in range(n_indexes):
+            retArray[i] = indexes[i]
+        free(indexes)
+        
+        return retArray
+       
+    def __getitem__(self, key):   #TODO: everything
+        '''Return a Scan object
+        
+        Example:
+        --------
+        
+        .. code-block:: python
             
-    def data(self, scan_no): # TODO: move to Scan class
+            from specfile import SpecFile
+            sf = SpecFile("t.dat")
+            myscan = sf[2]
+            nlines, ncolumns = myscan.data.shape
+        '''
+        #if isinstance(key, int):
+        #    # check in range
+        #return Scan(self)
+        pass
+    
+    def data(self, scan_idx): # TODO: move to Scan class
         '''Returns data and metadata for the specified scan number.
         
-        :param scan_no: Scan number to return. 
-        :type scan_no: int
+        :param scan_idx: Unique scan index. 
+        :type scan_idx: int
         :return: ret_array
         :rtype: numpy.ndarray 
         
@@ -234,7 +272,7 @@ cdef class SpecFile(object):
             long nlines, ncolumns, regular
             
         sfdata_error = SfData(self.handle, 
-                              scan_no, 
+                              scan_idx, 
                               &mydata, 
                               &data_info, 
                               &self._error)
@@ -257,90 +295,51 @@ cdef class SpecFile(object):
         
         # nlines and ncolumns can be accessed as ret_array.shape
         return ret_array
-
-    def list(self): 
-        '''Returns list (1D numpy array) of scan indexes in SpecFile.
-                
-        :param scan_no: Scan number to return. 
-        :type scan_no: int
-        :return: retArray
-        :rtype: numpy array 
-        '''    
-        cdef long *indexes
-        indexes = SfList(self.handle, &self._error)
-        
-        if self._error:
-            raise IOError(self.get_error_string())
-        
-        n_indexes = len(self)
-        retArray = numpy.empty((n_indexes,),dtype=numpy.int)
-        for i in range(n_indexes):
-            retArray[i] = indexes[i]
-        free(indexes)
-        
-        return retArray
     
-    def columns(self, scan_no): # TODO: move to Scan class
+    def columns(self, scan_idx): # TODO: move to Scan class
         '''Return number of columns in a scan from the #N header line
         (without #N and ssan number)
         
-        :param scan_no: Scan number 
-        :type scan_no: int
+        :param scan_idx: Unique scan index. 
+        :type scan_idx: int
         :return: Number of columns in scan from #N record
         :rtype: int
         '''
-        no_columns = SfNoColumns(self.handle, scan_no, &self._error)
+        no_columns = SfNoColumns(self.handle, scan_idx, &self._error)
         if self._error:
             raise IOError(self.get_error_string())
         
         return no_columns
         
-    def command(self, scan_no): # TODO: move to Scan class
+    def command(self, scan_idx): # TODO: move to Scan class
         '''Return #S line (without #S and scan number)
         
-        :param scan_no: Scan number
-        :type scan_no: int
+        :param scan_idx: Unique scan index. 
+        :type scan_idx: int
         :return: S line
         :rtype: utf-8 encoded bytes
         '''
-        s_record = <bytes> SfCommand(self.handle, scan_no, &self._error)
+        s_record = <bytes> SfCommand(self.handle, scan_idx, &self._error)
         if self._error:
             raise IOError(self.get_error_string())
         
         return s_record.encode('utf-8)')
     
-    def date(self, scan_no):   #TODO: segmentation fault when #D line absent
+    def date(self, scan_idx):   #TODO: segmentation fault when #D line absent
          # TODO: move to Scan class
         '''Return date from #D line
         
-        :param scan_no: Scan number
-        :type scan_no: int
+        :param scan_idx: Unique scan index. 
+        :type scan_idx: int
         :return: Date from #D line
         :rtype: utf-8 encoded bytes
         '''
-        d_record = <bytes> SfDate(self.handle, scan_no, &self._error)
+        d_record = <bytes> SfDate(self.handle, scan_idx, &self._error)
         if self._error:
             raise IOError(self.get_error_string())
         
         return d_record.encode('utf-8')
-    
-    def __getitem__(self, key):   #TODO: everything
-        '''Return a Scan object
-        
-        Example:
-        --------
-        
-        .. code-block:: python
-            
-            from specfile import SpecFile
-            sf = SpecFile("t.dat")
-            myscan = sf[2]
-            nlines, ncolumns = myscan.data.shape
-        '''
-        #if isinstance(key, int):
-        #    # check in range
-        #return Scan(self)
-        pass
+
     
     
     
