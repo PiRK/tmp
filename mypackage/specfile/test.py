@@ -7,6 +7,10 @@ sfdata = sf.data(2)
 print("Data lines 2 to 5 in second scan:")
 print(sfdata[2:5])
 print("Shape of sfdata: " + str(sfdata.shape))
+print("#N in scan 2: " + str(sf.columns(2)))
+print("#S in scan 2: " + sf.command(2))
+print("#D in scan 2: " + sf.date(2))
+
 
 try:
     sf.data(108) # should raise IOError: Scan not found error (SpecFile)
@@ -17,6 +21,7 @@ except IOError as err:
 sf = None  # testing destructor
 
 sf2 = PySpecFile("doesnt_exist.dat")
+print("dummy")
 print(dir(sf2))
 print(sf2.get_error_string())
 

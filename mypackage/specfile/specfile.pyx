@@ -35,6 +35,7 @@ Classes
 
 - :class:`PySpecFile`
 """
+import os.path
 cimport cython
 
 from libc.stdlib cimport free, malloc
@@ -85,6 +86,28 @@ from specfile_pxd cimport *
 #         references to the object are gone. """
 #         free(<void*>self.data_ptr)
 
+debugging = True
+
+def debug_msg(msg):
+    if debugging:
+        print("Debug message: " + msg)
+
+SF_ERR_NO_ERRORS = 0
+SF_ERR_MEMORY_ALLOC = 1
+SF_ERR_FILE_OPEN = 2
+SF_ERR_FILE_CLOSE = 3
+SF_ERR_FILE_READ = 4
+SF_ERR_FILE_WRITE = 5
+SF_ERR_LINE_NOT_FOUND = 6
+SF_ERR_SCAN_NOT_FOUND = 7
+SF_ERR_HEADER_NOT_FOUND = 8
+SF_ERR_LABEL_NOT_FOUND = 9
+SF_ERR_MOTOR_NOT_FOUND = 10
+SF_ERR_POSITION_NOT_FOUND = 11
+SF_ERR_LINE_EMPTY = 12
+SF_ERR_USER_NOT_FOUND = 13
+SF_ERR_COL_NOT_FOUND = 14
+SF_ERR_MCA_NOT_FOUND = 15
 
 cdef class PySpecFile(object):
     '''
@@ -93,30 +116,41 @@ cdef class PySpecFile(object):
     :param filename: Path of the SpecFile to read
     :type label_text: string
     '''
+    
     cdef SpecFile *_sf
     cdef int _error
    
-    
-    def __init__(self, filename):
-        self._sf =  SfOpen(filename, &self._error)
-        # It seems dealloc is called in previous line when
-        # passing an invalid file name.
-        # Therefore, error handling is done in __dealloc__
-        # But this seems to be ignored, and causes errors explicitly ignored 
-        # to be raised during destruction (invalid scan...)
-
+    def __cinit__(self, filename):
+        if os.path.exists(filename):
+            self._sf =  SfOpen(filename, &self._error)
+        else:
+            self._error = SF_ERR_FILE_OPEN
+       
+    def __init__(self, filename):            
+        if self._error:
+            raise IOError(self.get_error_string() + " (%s)" % filename)
+        
     def __len__(self):
-        '''returns number of scans in the SpecFile'''
+        '''returns the number of scans in the SpecFile'''
         return SfScanNo(self._sf)
 
     def __dealloc__(self):
         '''Destructor: Calls SfClose(self._sf)'''
-        #TODO check what to do with returned value
-        print(" Passing by destructor")
-        if SfClose(self._sf):
-            print(" ERROR cleaning up")
-        if self._error:
-            raise IOError(self.get_error_string())
+        debug_msg(" Passing by destructor")
+        if not self._error == SF_ERR_FILE_OPEN:
+            if SfClose(self._sf):
+                self._error = SF_ERR_FILE_CLOSE
+                raise IOError(self.get_error_string())
+        ## Errors raised in __dealloc__seem to be ignored. Why?
+        
+    def get_error_string(self):
+        '''Returns the error message corresponding to the error code
+        contained in self._error.
+        
+        :param code: Error code 
+        :type code: int
+        '''    
+        return (<bytes> SfError(self._error)).encode('utf-8)') 
             
     def data(self, scan_no):
         '''Returns data and metadata for the specified scan number.
@@ -139,12 +173,11 @@ cdef class PySpecFile(object):
         cdef: 
             double** mydata
             long* data_info
-            long long_scan_no = scan_no
             int i, j
             long nlines, ncolumns, regular
             
         sfdata_error = SfData(self._sf, 
-                              long_scan_no, 
+                              scan_no, 
                               &mydata, 
                               &data_info, 
                               &self._error)
@@ -166,7 +199,6 @@ cdef class PySpecFile(object):
         free(data_info)
         
         # nlines and ncolumns can be accessed as ret_array.shape
-        #return (nlines, ncolumns, regular), ret_array
         return ret_array
 
     def list(self):
@@ -176,34 +208,65 @@ cdef class PySpecFile(object):
         :type scan_no: int
         :return: retArray
         :rtype: numpy array 
-        
-        Example:
-        --------
-        
-        .. code-block:: python
-            
-            from specfile import PySpecFile
-            sf = PySpecFile("t.dat")
-            sfdata = sf.data(2)
-            nlines, ncolumns = sfdata.shape
         '''    
         cdef long *indexes
         indexes = SfList(self._sf, &self._error)
+        
+        if self._error:
+            raise IOError(self.get_error_string())
+        
         n_indexes = len(self)
         retArray = numpy.empty((n_indexes,),dtype=numpy.int)
         for i in range(n_indexes):
             retArray[i] = indexes[i]
         free(indexes)
+        
         return retArray
     
-    def get_error_string(self):
-        '''Updates the error message according to an error code.
+    def columns(self, scan_no):
+        '''Return number of columns in a scan from the #N header line
+        (without #N and ssan number)
         
-        :param code: Error code 
-        :type code: int
-        '''    
+        :param scan_no: Scan number 
+        :type scan_no: int
+        :return: Number of columns in scan from #N record
+        :rtype: int
+        '''
+        no_columns = SfNoColumns(self._sf, scan_no, &self._error)
+        if self._error:
+            raise IOError(self.get_error_string())
         
-        return (<bytes> SfError(self._error)).encode('utf-8)') 
+        return no_columns
+        
+    def command(self, scan_no):
+        '''Return #S line (without #S and san number)
+        
+        :param scan_no: Scan number
+        :type scan_no: int
+        :return: S line
+        :rtype: utf-8 encoded bytes
+        '''
+        s_record = <bytes> SfCommand(self._sf, scan_no, &self._error)
+        if self._error:
+            raise IOError(self.get_error_string())
+        
+        return s_record.encode('utf-8)')
+    
+    def date(self, scan_no):
+        '''Return date from #D line
+        
+        :param scan_no: Scan number
+        :type scan_no: int
+        :return: Date from #D line
+        :rtype: utf-8 encoded bytes
+        '''
+        d_record = <bytes> SfDate(self._sf, scan_no, &self._error)
+        if self._error:
+            raise IOError(self.get_error_string())
+        
+        return d_record.encode('utf-8)')
     
     
-   
+    
+    
+    
