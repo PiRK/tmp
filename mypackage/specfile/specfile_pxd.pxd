@@ -4,24 +4,27 @@ cimport cython
 cdef extern from "SpecFile.h":
     struct _SpecFile:
         pass
-ctypedef _SpecFile SpecFile
+ctypedef _SpecFile SpecFileHandle
 
 cdef extern from "SpecFile.h":
     # sfinit
-    SpecFile* SfOpen(char*, int*)
-    int SfClose(SpecFile*)
+    SpecFileHandle* SfOpen(char*, int*)
+    int SfClose(SpecFileHandle*)
     char *SfError(int)
     
     # sfindex
-    long *SfList(SpecFile*, int*)
-    long SfScanNo(SpecFile*)
+    long *SfList(SpecFileHandle*, int*)
+    long SfScanNo(SpecFileHandle*)
+    long SfIndex(SpecFileHandle*, long, long)
+    long SfNumber(SpecFileHandle*, long)
+    long SfOrder(SpecFileHandle*, long)
     
     # sfdata
-    int SfData(SpecFile*, long, double***, long**, int*)
+    int SfData(SpecFileHandle*, long, double***, long**, int*)
     
     # sfheader
-    char *SfCommand(SpecFile*, long, int*)
-    long SfNoColumns(SpecFile*, long, int*)
-    char *SfDate(SpecFile*, long, int*)
+    char *SfCommand(SpecFileHandle*, long, int*)
+    long SfNoColumns(SpecFileHandle*, long, int*)
+    char *SfDate(SpecFileHandle*, long, int*)
     
 

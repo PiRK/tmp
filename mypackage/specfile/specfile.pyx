@@ -23,6 +23,7 @@
 # THE SOFTWARE.
 #
 #############################################################################*/
+from PyMca5.PyMcaIO.specfilewrapper import Specfile
 __author__ = "P. Knobel - ESRF Data Analysis"
 __contact__ = "pierre.knobel@esrf.fr"
 __license__ = "MIT"
@@ -90,7 +91,7 @@ debugging = True
 
 def debug_msg(msg):
     if debugging:
-        print("Debug message: " + msg)
+        print("Debug message: " + str(msg))
 
 SF_ERR_NO_ERRORS = 0
 SF_ERR_MEMORY_ALLOC = 1
@@ -109,7 +110,13 @@ SF_ERR_USER_NOT_FOUND = 13
 SF_ERR_COL_NOT_FOUND = 14
 SF_ERR_MCA_NOT_FOUND = 15
 
-cdef class PySpecFile(object):
+cdef class Scan(object):
+    def __init__(self, specfile):
+        self._specfile = specfile
+        
+
+
+cdef class SpecFile(object):
     '''
     Accessing SpecFiles
 
@@ -117,31 +124,30 @@ cdef class PySpecFile(object):
     :type label_text: string
     '''
     
-    cdef SpecFile *_sf
+    cdef SpecFileHandle *handle   #SpecFile struct in SpecFile.h
     cdef int _error
    
     def __cinit__(self, filename):
-        if os.path.exists(filename):
-            self._sf =  SfOpen(filename, &self._error)
+        if os.path.isfile(filename):
+            self.handle =  SfOpen(filename, &self._error)
         else:
             self._error = SF_ERR_FILE_OPEN
        
     def __init__(self, filename):            
         if self._error:
-            raise IOError(self.get_error_string() + " (%s)" % filename)
+            raise IOError(self.get_error_string())
         
     def __len__(self):
         '''returns the number of scans in the SpecFile'''
-        return SfScanNo(self._sf)
+        return SfScanNo(self.handle)
 
     def __dealloc__(self):
-        '''Destructor: Calls SfClose(self._sf)'''
+        '''Destructor: Calls SfClose(self.handle)'''
         debug_msg(" Passing by destructor")
         if not self._error == SF_ERR_FILE_OPEN:
-            if SfClose(self._sf):
+            if SfClose(self.handle):
                 self._error = SF_ERR_FILE_CLOSE
-                raise IOError(self.get_error_string())
-        ## Errors raised in __dealloc__seem to be ignored. Why?
+                print("Error while closing")
         
     def get_error_string(self):
         '''Returns the error message corresponding to the error code
@@ -151,8 +157,59 @@ cdef class PySpecFile(object):
         :type code: int
         '''    
         return (<bytes> SfError(self._error)).encode('utf-8)') 
+    
+    def index(self, scan_number, scan_order=1):
+        '''Returns scan index from scan number and order.
+        
+        :param scan_number: Scan number (possibly non-unique). 
+        :type scan_number: int
+        :param scan_order: Scan order. 
+        :type scan_order: int default 1
+        :returns: Unique scan index
+        :rtype: int
+        
+        
+        Scan indices are increasing from 1 to len(self) in the order in which
+        they appear in the file.
+        Scan numbers are defined by users and are not necessarily unique.
+        The scan order for a given scan number increments each time the scan 
+        number appers in a given file.'''
+        idx = SfIndex(self.handle, scan_number, scan_order)
+        if idx == -1:
+            self._error = SF_ERR_SCAN_NOT_FOUND
+            raise IOError(self.get_error_string())
+        return idx
+    
+    def number(self, scan_index):
+        '''Returns scan number from scan index.
+        
+        :param scan_index: Unique scan index between 1 and len(self). 
+        :type scan_index: int
+        :returns: User defined scan number.
+        :rtype: int
+        '''
+        idx = SfIndex(self.handle, scan_number, scan_order)
+        if idx == -1:
+            self._error = SF_ERR_SCAN_NOT_FOUND
+            raise IOError(self.get_error_string())
+        return idx
+    
+    def order(self, scan_index):
+        '''Returns scan order from scan index.
+        
+        :param scan_index: Unique scan index between 1 and len(self). 
+        :type scan_index: int
+        :returns: Scan order (sequential number incrementing each time a 
+                 non-unique occurrence of a scan number is encountered).
+        :rtype: int
+        '''
+        ordr = SfOrder(self.handle, scan_number, scan_order)
+        if ordr == -1:
+            self._error = SF_ERR_SCAN_NOT_FOUND
+            raise IOError(self.get_error_string())
+        return ordr
             
-    def data(self, scan_no):
+    def data(self, scan_no): # TODO: move to Scan class
         '''Returns data and metadata for the specified scan number.
         
         :param scan_no: Scan number to return. 
@@ -176,7 +233,7 @@ cdef class PySpecFile(object):
             int i, j
             long nlines, ncolumns, regular
             
-        sfdata_error = SfData(self._sf, 
+        sfdata_error = SfData(self.handle, 
                               scan_no, 
                               &mydata, 
                               &data_info, 
@@ -193,7 +250,7 @@ cdef class PySpecFile(object):
                                                    dtype=numpy.double)
         for i in range(nlines):
             for j in range(ncolumns):
-                ret_array[i, j] = mydata[i][j]        
+                ret_array[i, j] = mydata[i][j]    
         
         free(mydata)
         free(data_info)
@@ -201,7 +258,7 @@ cdef class PySpecFile(object):
         # nlines and ncolumns can be accessed as ret_array.shape
         return ret_array
 
-    def list(self):
+    def list(self): 
         '''Returns list (1D numpy array) of scan indexes in SpecFile.
                 
         :param scan_no: Scan number to return. 
@@ -210,7 +267,7 @@ cdef class PySpecFile(object):
         :rtype: numpy array 
         '''    
         cdef long *indexes
-        indexes = SfList(self._sf, &self._error)
+        indexes = SfList(self.handle, &self._error)
         
         if self._error:
             raise IOError(self.get_error_string())
@@ -223,7 +280,7 @@ cdef class PySpecFile(object):
         
         return retArray
     
-    def columns(self, scan_no):
+    def columns(self, scan_no): # TODO: move to Scan class
         '''Return number of columns in a scan from the #N header line
         (without #N and ssan number)
         
@@ -232,27 +289,28 @@ cdef class PySpecFile(object):
         :return: Number of columns in scan from #N record
         :rtype: int
         '''
-        no_columns = SfNoColumns(self._sf, scan_no, &self._error)
+        no_columns = SfNoColumns(self.handle, scan_no, &self._error)
         if self._error:
             raise IOError(self.get_error_string())
         
         return no_columns
         
-    def command(self, scan_no):
-        '''Return #S line (without #S and san number)
+    def command(self, scan_no): # TODO: move to Scan class
+        '''Return #S line (without #S and scan number)
         
         :param scan_no: Scan number
         :type scan_no: int
         :return: S line
         :rtype: utf-8 encoded bytes
         '''
-        s_record = <bytes> SfCommand(self._sf, scan_no, &self._error)
+        s_record = <bytes> SfCommand(self.handle, scan_no, &self._error)
         if self._error:
             raise IOError(self.get_error_string())
         
         return s_record.encode('utf-8)')
     
-    def date(self, scan_no):
+    def date(self, scan_no):   #TODO: segmentation fault when #D line absent
+         # TODO: move to Scan class
         '''Return date from #D line
         
         :param scan_no: Scan number
@@ -260,11 +318,29 @@ cdef class PySpecFile(object):
         :return: Date from #D line
         :rtype: utf-8 encoded bytes
         '''
-        d_record = <bytes> SfDate(self._sf, scan_no, &self._error)
+        d_record = <bytes> SfDate(self.handle, scan_no, &self._error)
         if self._error:
             raise IOError(self.get_error_string())
         
-        return d_record.encode('utf-8)')
+        return d_record.encode('utf-8')
+    
+    def __getitem__(self, key):   #TODO: everything
+        '''Return a Scan object
+        
+        Example:
+        --------
+        
+        .. code-block:: python
+            
+            from specfile import SpecFile
+            sf = SpecFile("t.dat")
+            myscan = sf[2]
+            nlines, ncolumns = myscan.data.shape
+        '''
+        #if isinstance(key, int):
+        #    # check in range
+        #return Scan(self)
+        pass
     
     
     
