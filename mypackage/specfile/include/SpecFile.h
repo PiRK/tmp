@@ -73,9 +73,11 @@
 #define  COL            1  /* data_info index for no. of data columns*/
 #define  REG            2  /* data_info index for regular            */
 
+#ifndef CYTHON_ABI  /*hack to undefine L (used by cython when handling lists)*/
 #define  H              0
 #define  K              1
 #define  L              2
+#endif              /*end of hack*/
 #define  ABORTED       -1
 #define  NOT_ABORTED    0
 

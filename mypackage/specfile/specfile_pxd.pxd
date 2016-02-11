@@ -10,10 +10,10 @@ cdef extern from "SpecFile.h":
     # sfinit
     SpecFileHandle* SfOpen(char*, int*)
     int SfClose(SpecFileHandle*)
-    char *SfError(int)
+    char* SfError(int)
     
     # sfindex
-    long *SfList(SpecFileHandle*, int*)
+    long* SfList(SpecFileHandle*, int*)
     long SfScanNo(SpecFileHandle*)
     long SfIndex(SpecFileHandle*, long, long)
     long SfNumber(SpecFileHandle*, long)
@@ -23,8 +23,13 @@ cdef extern from "SpecFile.h":
     int SfData(SpecFileHandle*, long, double***, long**, int*)
     
     # sfheader
-    char *SfCommand(SpecFileHandle*, long, int*)
+    #char* SfTitle(SpecFileHandle*, long, int*)
+    long SfHeader(SpecFileHandle*, long, char*, char***, int*)
+    char* SfCommand(SpecFileHandle*, long, int*)
     long SfNoColumns(SpecFileHandle*, long, int*)
-    char *SfDate(SpecFileHandle*, long, int*)
+    char* SfDate(SpecFileHandle*, long, int*)
     
+    # sflabel
+    long SfAllLabels(SpecFileHandle*, long, char***, int*)
+    char* SfLabel(SpecFileHandle*, long, long, int *)
 
