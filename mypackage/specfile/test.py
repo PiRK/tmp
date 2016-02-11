@@ -13,7 +13,7 @@ try:
 except AssertionError:
     print("""Assertion failed as expected""")
     
-scan2 = sf[2]
+scan2 = sf[object()]
 
 print("\nData lines 2 to 5 in second scan:")
 print(scan2.data[2:5])

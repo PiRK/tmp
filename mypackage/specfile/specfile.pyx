@@ -48,42 +48,6 @@ numpy.import_array()
 
 from specfile_pxd cimport *
 
-# cdef class ArrayWrapper:
-#     # Author: Gael Varoquaux
-#     # License: BSD
-#     # url: http://gael-varoquaux.info/programming/cython-example-of-exposing-c-computed-arrays-in-python-without-data-copies.html?p=157
-#     cdef void* data_ptr
-#     cdef int size
-# 
-#     cdef set_data(self, int size, void* data_ptr):
-#         """ Set the data of the array
-#         This cannot be done in the constructor as it must recieve C-level
-#         arguments.
-#         Parameters:
-#         -----------
-#         size: int
-#             Length of the array.
-#         data_ptr: void*
-#             Pointer to the data            
-#         """
-#         self.data_ptr = data_ptr
-#         self.size = size
-# 
-#     def __array__(self):
-#         """ Here we use the __array__ method, that is called when numpy
-#             tries to get an array from the object."""
-#         cdef numpy.npy_intp shape[1]
-#         shape[0] = <numpy.npy_intp> self.size
-#         # Create a 1D array, of length 'size'
-#         ndarray = numpy.PyArray_SimpleNewFromData(1, shape,
-#                                                   numpy.NPY_INT, self.data_ptr)
-#         return ndarray
-# 
-#     def __dealloc__(self):
-#         """ Frees the array. This is called by Python when all the
-#         references to the object are gone. """
-#         free(<void*>self.data_ptr)
-
 debugging = True
 
 def debug_msg(msg):
@@ -313,26 +277,26 @@ cdef class SpecFile(object):
             nlines, ncolumns = myscan.data.shape
             labels_list = scan2.header_dict['L']
         '''
-        msg = """The scan identification key can be an integer representing 
-              the unique scan index or string 'N.M' with N being the scan 
-              number and M the order (eg '2.3')
-              """
-        if isinstance(key, int):
-            # check in range
-            if not 1 <= key <= len(self): 
-                msg = "Scan index must be in range 1-%d" % len(self)
-                raise IndexError(msg)
-            else: 
-                scan_index = key 
-        elif isinstance(key, str):
+        msg = "The scan identification key can be an integer representing "
+        msg += "the unique scan index or a string 'N.M' with N being the scan"
+        msg += "number and M the order (eg '2.3')"
+        
+        try:
+            scan_index = int(key)
+        except ValueError:
             try:
                 (number, order) = map(int, key.split("."))
                 scan_index = self.index(number, order)
             except ValueError:
                 raise IndexError(msg)
-        else:
+            else:
+                scan_index = self.index(number, order)
+        except:
+            raise IndexError(msg) 
+                
+        if not 1 <= scan_index <= len(self): 
+            msg = "Scan index must be in range 1-%d" % len(self)
             raise IndexError(msg)
-        
         
         return Scan(self, scan_index)
     
@@ -385,11 +349,10 @@ cdef class SpecFile(object):
         :rtype: list of str
         '''
         cdef: 
-            char* string_
             char** lines
         found = SfHeader(self.handle, 
                         scan_index, 
-                        string_,   #TODO: figure out what this parameter is
+                        "",           # no pattern matching 
                         &lines, 
                         &self._error)
         
@@ -402,7 +365,6 @@ cdef class SpecFile(object):
             lines_list[i] = line
                 
         free(lines)
-        free(string_)
         return lines_list
     
     def file_header(self, scan_index):
@@ -420,11 +382,11 @@ cdef class SpecFile(object):
         :rtype: list of str
         '''
         cdef: 
-            char* string_
             char** lines
+
         found = SfFileHeader(self.handle, 
                              scan_index, 
-                             string_,   #TODO: figure out what this parameter is
+                             "",         # no pattern matching
                              &lines, 
                              &self._error)
         if self._error:
@@ -436,7 +398,6 @@ cdef class SpecFile(object):
             lines_list[i] = line
                 
         free(lines)
-        free(string_)
         return lines_list     
     
     def columns(self, scan_index): 
@@ -455,7 +416,7 @@ cdef class SpecFile(object):
         
         return no_columns
         
-    def command(self, scan_index): # TODO: move to Scan class
+    def command(self, scan_index): 
         '''Return #S line (without #S and scan number)
         
         :param scan_index: Unique scan index between 1 and len(self). 
@@ -470,8 +431,7 @@ cdef class SpecFile(object):
         
         return str(s_record.encode('utf-8)'))
     
-    def date(self, scan_index):   #TODO: segmentation fault when #D line absent
-        # TODO: move to Scan class
+    def date(self, scan_index):  
         '''Return date from #D line
          
         :param scan_index: Unique scan index between 1 and len(self). 
