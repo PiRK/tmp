@@ -25,6 +25,7 @@ cdef extern from "SpecFile.h":
     # sfheader
     #char* SfTitle(SpecFileHandle*, long, int*)
     long SfHeader(SpecFileHandle*, long, char*, char***, int*)
+    long SfFileHeader(SpecFileHandle*, long, char*, char***, int*)
     char* SfCommand(SpecFileHandle*, long, int*)
     long SfNoColumns(SpecFileHandle*, long, int*)
     char* SfDate(SpecFileHandle*, long, int*)

@@ -4,7 +4,17 @@ print("Status when opening t.dat: " + sf.get_error_string())
 print("Number of scans: " + str(len(sf)))
 print("List of scans\n: " + str(sf.list()))
 
+scan2_1 = sf["2.1"]
 scan2 = sf[2]
+
+assert sf[2].header_dict['S'] == sf["2.1"].header_dict['S']
+try:
+   assert sf["3.1"].header_dict['S']  == sf[2].header_dict['S']
+except AssertionError:
+    print("""Assertion failed as expected""")
+    
+scan2 = sf[2]
+
 print("\nData lines 2 to 5 in second scan:")
 print(scan2.data[2:5])
 print("Shape of scan2data: " + str(scan2.data.shape))
@@ -13,18 +23,19 @@ print("#S in scan 2: " + scan2.header_dict['S'])
 print("#L in scan 2: " + str(scan2.header_dict['L']))
 
 print("\nList of all header lines in scan 2: ")
-print(str(scan2.header_list))
+print(str(scan2.header_lines))
+print("\nList of all file header lines in scan 2: ")
+print(str(scan2.file_header_lines))
 
-print("\nScan index of scan 3.1: " + str(sf.index(3)))
+print("\nScan index of scan 3.1: " + str(sf.index(3, 1)))
 print("Scan number of 4th scan: " + str(sf.number(4)))
 print("Scan order of 4th scan: " + str(sf.order(4)))
 
-print("Trying to access scan 3.2")
+print("Trying to find index of scan 3.2")
 try:
     sf.index(3, 2)  #scan 3.2 doesn't exist
 except IOError as err:
     print(err)
-
 
 print("\nTrying to access data of scan index 108 through SpecFile")
 try:

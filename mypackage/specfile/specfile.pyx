@@ -48,9 +48,6 @@ numpy.import_array()
 
 from specfile_pxd cimport *
 
-#TODO: SfList
-#SfData
-
 # cdef class ArrayWrapper:
 #     # Author: Gael Varoquaux
 #     # License: BSD
@@ -119,37 +116,70 @@ class Scan(object):
     :type specfile: :class:SpecFile
     :param scan_index: Unique index defining the scan in the SpecFile
     :type scan_index: int
-    '''
-#     cdef SpecFile _specfile                #SpecFile class defined here
-#     cdef int index
-#     cdef numpy.ndarray data
-#     cdef dict header_dict
-    
-    
+    '''    
     def __init__(self, specfile, scan_index):
         self._specfile = specfile
         self.index = scan_index
+        
         self.data = self._specfile.data(self.index)
-        self.header_list = self._specfile.scan_header(self.index)
         
-        self.fill_header_dict()
+        self.header_lines = self._specfile.scan_header(self.index)
+        '''List of header lines, including the leading "#L"'''
         
-    def fill_header_dict(self):
         self.header_dict = {}
+        '''Dictionary of header values or strings (depending on the
+        header type)'''
         
-        if self.header_exists('N'):
+        if self.record_exists_in_hdr('N'):
             self.header_dict['N'] = self._specfile.columns(self.index)
-        if self.header_exists('S'):
+        if self.record_exists_in_hdr('S'):
             self.header_dict['S'] = self._specfile.command(self.index)
-        if self.header_exists('L'):
+        if self.record_exists_in_hdr('L'):
             self.header_dict['L'] = self._specfile.labels(self.index)
             
+        self.file_header_lines = self._specfile.file_header(self.index)
+        '''List of file header lines relevant to this scan, 
+        including the leading "#L"'''
             
-    def header_exists(self, record):
-        for line in self.header_list:
+            
+    def record_exists_in_hdr(self, record):
+        '''Check whether a scan header line  exists.
+        
+        This should be used before attempting to retrieve header information 
+        using a C function that may crash with a "segmentation fault" if the 
+        header isn't defined in the SpecFile.
+        
+        :param record_type: single upper case letter corresponding to the
+                            header you want to test (e.g. 'L' for labels)
+        :type record_type: str
+        :returns: True or False
+        :rtype: boolean
+        
+        '''
+        for line in self.header_lines:
             if line.startswith("#" + record):
                 return True
         return False
+    
+    def record_exists_in_file_hdr(self, record):
+        '''Check whether a file header line  exists.
+        
+        This should be used before attempting to retrieve header information 
+        using a C function that may crash with a "segmentation fault" if the 
+        header isn't defined in the SpecFile.
+        
+        :param record_type: single upper case letter corresponding to the
+                            header you want to test (e.g. 'L' for labels)
+        :type record_type: str
+        :returns: True or False
+        :rtype: boolean
+        
+        '''
+        for line in self.file_header_lines:
+            if line.startswith("#" + record):
+                return True
+        return False
+    
 
 cdef class SpecFile(object):
     '''
@@ -266,7 +296,7 @@ cdef class SpecFile(object):
         
         return retArray
        
-    def __getitem__(self, key):   #TODO: everything
+    def __getitem__(self, key):   #TODO: add number.count key format
         '''Return a Scan object
         
         The Scan instance returned here keeps a reference to its parent SpecFile 
@@ -283,20 +313,31 @@ cdef class SpecFile(object):
             nlines, ncolumns = myscan.data.shape
             labels_list = scan2.header_dict['L']
         '''
+        msg = """The scan identification key can be an integer representing 
+              the unique scan index or string 'N.M' with N being the scan 
+              number and M the order (eg '2.3')
+              """
         if isinstance(key, int):
             # check in range
             if not 1 <= key <= len(self): 
                 msg = "Scan index must be in range 1-%d" % len(self)
                 raise IndexError(msg)
             else: 
-                scan_index = key
-                
-        #elif isinstance(key, basestring):
+                scan_index = key 
+        elif isinstance(key, str):
+            try:
+                (number, order) = map(int, key.split("."))
+                scan_index = self.index(number, order)
+            except ValueError:
+                raise IndexError(msg)
+        else:
+            raise IndexError(msg)
+        
         
         return Scan(self, scan_index)
     
     
-    def data(self, scan_index): # TODO: move to Scan class
+    def data(self, scan_index): 
         '''Returns data and metadata for the specified scan index.
         
         :param scan_index: Unique scan index between 1 and len(self). 
@@ -309,7 +350,7 @@ cdef class SpecFile(object):
             long* data_info
             int i, j
             long nlines, ncolumns, regular
-            
+
         sfdata_error = SfData(self.handle, 
                               scan_index, 
                               &mydata, 
@@ -336,31 +377,67 @@ cdef class SpecFile(object):
         return ret_array
     
     def scan_header(self, scan_index):
-        '''Return number of columns in a scan from the #N header line
-        (without #N and scan number)
+        '''Return list of scan header lines.
         
         :param scan_index: Unique scan index between 1 and len(self). 
         :type scan_index: int
-        :return: Number of columns in scan from #N record
-        :rtype: int
+        :return: List of raw scan header lines, including the leading "#L"
+        :rtype: list of str
         '''
         cdef: 
-            char string_
+            char* string_
             char** lines
         found = SfHeader(self.handle, 
                         scan_index, 
-                        &string_,  
+                        string_,   #TODO: figure out what this parameter is
                         &lines, 
                         &self._error)
         
-        lines_list = []
+        if self._error:
+            raise IOError(self.get_error_string())
+        
+        lines_list = [None] * found
         for i in range(found):
             line =  str(<bytes>lines[i].encode('utf-8'))
-            lines_list.append(line)
+            lines_list[i] = line
                 
         free(lines)
-        #free(string_)
-        return lines_list      
+        free(string_)
+        return lines_list
+    
+    def file_header(self, scan_index):
+        '''Return list of file header lines.
+        
+        A file header contains all lines between a "#F" header line and
+        a #S header line (start of scan). We need to specify a scan number
+        because there can be more than one file header in a given file. 
+        A file header applies to all subsequent scans, until a new file
+        header is defined.
+        
+        :param scan_index: Unique scan index between 1 and len(self). 
+        :type scan_index: int
+        :return: List of raw file header lines, including the leading "#L"
+        :rtype: list of str
+        '''
+        cdef: 
+            char* string_
+            char** lines
+        found = SfFileHeader(self.handle, 
+                             scan_index, 
+                             string_,   #TODO: figure out what this parameter is
+                             &lines, 
+                             &self._error)
+        if self._error:
+            raise IOError(self.get_error_string())
+
+        lines_list = [None] * found
+        for i in range(found):
+            line =  str(<bytes>lines[i].encode('utf-8'))
+            lines_list[i] = line
+                
+        free(lines)
+        free(string_)
+        return lines_list     
     
     def columns(self, scan_index): 
         '''Return number of columns in a scan from the #N header line
@@ -427,10 +504,10 @@ cdef class SpecFile(object):
         if self._error:
             raise IOError(self.get_error_string())
          
-        labels_list = []
+        labels_list = [None] * num_labels
         for i in range(num_labels):
             label =  str(<bytes>all_labels[i].encode('utf-8'))
-            labels_list.append(label)
+            labels_list[i] = label
   
         free(all_labels) 
         return labels_list
