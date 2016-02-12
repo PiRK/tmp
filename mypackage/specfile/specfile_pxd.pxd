@@ -6,7 +6,7 @@ cdef extern from "SpecFile.h":
         pass
 ctypedef _SpecFile SpecFileHandle
 
-cdef extern from "SpecFile.h":
+cdef extern:
     # sfinit
     SpecFileHandle* SfOpen(char*, int*)
     int SfClose(SpecFileHandle*)
