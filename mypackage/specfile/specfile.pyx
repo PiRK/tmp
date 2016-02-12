@@ -156,7 +156,8 @@ class Scan(object):
         :return: Line data as a 1D array of doubles
         :rtype: numpy.ndarray 
         '''   
-        return self._specfile.data_line(self.index, line_index)
+        #return self._specfile.data_line(self.index, line_index)
+        return self.data[line_index - 1, :]
    
                  
 # def handle_error(method):
@@ -380,42 +381,42 @@ cdef class SpecFile(object):
         # nlines and ncolumns can be accessed as ret_array.shape
         return ret_array
     
-    #@handle_error
-    def data_line(self, scan_index, line_index): 
-        '''Returns data for a given line of the specified scan.
-        
-        :param scan_index: Unique scan index between 1 and len(self). 
-        :type scan_index: int
-        :param line_index: Index of data line to retrieve (starting with 1)
-        :type line_index: int
-        :return: Line data as a 1D array of doubles
-        :rtype: numpy.ndarray 
-        '''   
-        cdef: 
-            double* data_line
-            int j
-            
-        self._error = SF_ERR_NO_ERRORS
-        ncolumns =  SfDataLine(self.handle, 
-                               scan_index, 
-                               line_index, 
-                               &data_line, 
-                               &self._error)
-        
-        if self._error == SF_ERR_LINE_NOT_FOUND:
-            raise IndexError(self.get_error_string())
-        elif self._error:
-            raise IOError(self.get_error_string())
-        
-        cdef numpy.ndarray ret_array = numpy.empty((ncolumns,), 
-                                                   dtype=numpy.double)
-
-        for j in range(ncolumns):
-            ret_array[j] = data_line[j]  
-        
-        free(data_line)
-        
-        return ret_array
+#     #@handle_error
+#     def data_line(self, scan_index, line_index): 
+#         '''Returns data for a given line of the specified scan.
+#         
+#         :param scan_index: Unique scan index between 1 and len(self). 
+#         :type scan_index: int
+#         :param line_index: Index of data line to retrieve (starting with 1)
+#         :type line_index: int
+#         :return: Line data as a 1D array of doubles
+#         :rtype: numpy.ndarray 
+#         '''   
+#         cdef: 
+#             double* data_line
+#             int j
+#             
+#         self._error = SF_ERR_NO_ERRORS
+#         ncolumns =  SfDataLine(self.handle, 
+#                                scan_index, 
+#                                line_index, 
+#                                &data_line, 
+#                                &self._error)
+#         
+#         if self._error == SF_ERR_LINE_NOT_FOUND:
+#             raise IndexError(self.get_error_string())
+#         elif self._error:
+#             raise IOError(self.get_error_string())
+#         
+#         cdef numpy.ndarray ret_array = numpy.empty((ncolumns,), 
+#                                                    dtype=numpy.double)
+# 
+#         for j in range(ncolumns):
+#             ret_array[j] = data_line[j]  
+#         
+#         free(data_line)
+#         
+#         return ret_array
     
     def scan_header(self, scan_index):
         '''Return list of scan header lines.
