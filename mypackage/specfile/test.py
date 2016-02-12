@@ -15,7 +15,10 @@ except AssertionError:
     
 scan2 = sf[2]
 
-print("\nData lines 2 to 5 in second scan:")
+print("\nData line 8 in second scan (from data line method):")
+print(scan2.data_line(8))
+
+print("\nData lines 2 to 5 in second scan (from data attribute):")
 print(scan2.data[2:5])
 print("Shape of scan2data: " + str(scan2.data.shape))
 print("\n#N in scan 2: " + str(scan2.header_dict['N']))
@@ -24,7 +27,7 @@ print("#L in scan 2: " + str(scan2.header_dict['L']))
 
 print("\nList of all header lines in scan 2: ")
 print(str(scan2.header_lines))
-print("\nList of all file header lines in scan 2: ")
+print("\nList of all file header lines related to scan 2: ")
 print(str(scan2.file_header_lines))
 
 print("\nScan index of scan 3.1: " + str(sf.index(3, 1)))

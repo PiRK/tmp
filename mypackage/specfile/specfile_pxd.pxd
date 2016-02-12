@@ -1,12 +1,14 @@
+# coding: utf-8
 #pxd
 cimport cython
 
-cdef extern from "SpecFile.h":
+cdef extern from "SpecFileCython.h":
     struct _SpecFile:
         pass
+# Renaming struct because we have too many SpecFile items (files, classes…)
 ctypedef _SpecFile SpecFileHandle
 
-cdef extern:
+cdef extern from "SpecFileCython.h":
     # sfinit
     SpecFileHandle* SfOpen(char*, int*)
     int SfClose(SpecFileHandle*)
@@ -21,6 +23,7 @@ cdef extern:
     
     # sfdata
     int SfData(SpecFileHandle*, long, double***, long**, int*)
+    long SfDataLine(SpecFileHandle*, long, long, double**, int*)
     
     # sfheader
     #char* SfTitle(SpecFileHandle*, long, int*)

@@ -36,6 +36,18 @@ mypackage.drop module
     :undoc-members:
     :show-inheritance:
 
+mypackage.specfile module
+----------------------------
+
+.. automodule:: mypackage.specfile.specfile
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+.. automodule:: mypackage.specfile.specfile.Scan
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 Module contents
 ---------------
