@@ -8,10 +8,10 @@ sf = SpecFile(filename)
 scan2_1 = sf["2.1"]
 scan2 = sf[2]
 
+
 class TestSpecFile(unittest.TestCase):
     def test_open(self):
         self.assertIsInstance(SpecFile(filename), SpecFile)
-        self.assertEqual(SpecFile(filename).get_error_string(), "OK ( SpecFile )")
         with self.assertRaises(IOError):
             sf2 = SpecFile("doesnt_exist.dat")
         
@@ -47,7 +47,7 @@ class TestSpecFile(unittest.TestCase):
             
 class TestScan(unittest.TestCase):
     def test_scan_headers(self):
-        self.assertEqual(scan2.header_dict['S'], 
+        self.assertEqual(scan2.header_dict['S'],
                          scan2_1.header_dict['S'])
         self.assertEqual(scan2.header_dict['S'], "2 He")
         self.assertNotEqual(sf["3.1"].header_dict['S'], 
@@ -94,4 +94,4 @@ def suite():
 
 
 if __name__ == '__main__':
-    unittest.main(defaultTest='suite')
+    unittest.main(defaultTest="suite")
