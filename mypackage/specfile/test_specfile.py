@@ -47,28 +47,41 @@ class TestSpecFile(unittest.TestCase):
             
 class TestScan(unittest.TestCase):
     def test_scan_headers(self):
-        self.assertEqual(scan2.header_dict['S'], scan2_1.header_dict['S'])
-        self.assertEqual(scan2.header_dict['S'], "He")
-        self.assertNotEqual(sf["3.1"].header_dict['S'], scan2.header_dict['S'])
-        self.assertEqual(scan2.header_dict['N'], 7)
+        self.assertEqual(scan2.header_dict['S'], 
+                         scan2_1.header_dict['S'])
+        self.assertEqual(scan2.header_dict['S'], "2 He")
+        self.assertNotEqual(sf["3.1"].header_dict['S'], 
+                            scan2.header_dict['S'])
+        self.assertEqual(scan2.header_dict['N'], '7')
         self.assertEqual(scan2.header_lines[1], '#N 7')
         self.assertEqual(len(scan2.header_lines), 3)   
         
     def test_file_headers(self):
         self.assertEqual(scan2.file_header_lines[0], 
-                         '#F XCOM_CrossSections.dat')  
-        self.assertEqual(scan2.file_header_dict[3], 
-                         '#U02')  
-        self.assertEqual(len(scan2.file_header_lines), 6)   
+                         '#F XCOM_CrossSections.dat')   
+        self.assertEqual(len(scan2.file_header_lines), 6)
+        # parsing headers with single character key 
+        self.assertEqual(scan2.file_header_dict['F'], 
+                         'XCOM_CrossSections.dat')   
+        # parsing headers with long keys  
+        self.assertEqual(scan2.file_header_dict['U03'], 
+                         'XCOM itself can be found at:')
+        # parsing empty headers
+        self.assertEqual(scan2.file_header_dict['U02'], '')  
         
     def test_scan_labels(self):
-        self.assertEqual(scan2.header_dict['L'], 
+        self.assertEqual(scan2.labels, 
                          ['PhotonEnergy[keV]', 'Rayleigh(coherent)[cm2/g]', 'Compton(incoherent)[cm2/g]', 'CoherentPlusIncoherent[cm2/g]', 'Photoelectric[cm2/g]', 'PairProduction[cm2/g]', 'TotalCrossSection[cm2/g]'])
 
     def test_data(self):
-        self.assertAlmostEqual(scan2.data_line(8)[2], 0.11025, 5)
+        # assertAlmostEqual compares 7 decimal places by default
+        self.assertAlmostEqual(scan2.data_line(8)[2], 
+                               0.11025)
         self.assertEqual(scan2.data.shape, (96, 7))
-        self.assertAlmostEqual(numpy.sum(scan2.data), 439208090.16178566)
+        self.assertEqual(scan2.nlines, 96)
+        self.assertEqual(scan2.ncolumns, 7)
+        self.assertAlmostEqual(numpy.sum(scan2.data), 
+                               439208090.16178566)
 
 
 def suite():

@@ -36,4 +36,7 @@ cdef extern from "SpecFileCython.h":
     # sflabel
     long SfAllLabels(SpecFileHandle*, long, char***, int*)
     char* SfLabel(SpecFileHandle*, long, long, int *)
+    
+    # sftools
+    void freeArrNZ(void***, long)
 

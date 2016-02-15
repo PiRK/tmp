@@ -38,16 +38,22 @@ Classes
 - :class:`Scan`
 """
 
-#TODO: refactor error handling in SpecFile methods using decorators
+#TODO: 
+# - refactor error handling in SpecFile methods using decorators
+# - replace free() with freePtr() and freeArrNZ() (probable memory leaks
+#   with pointers to list of pointers) 
+# - file_header_dict
+# - scan_header_dict++
 
 import os.path
-cimport cython
+import re
+import numpy
 
+cimport numpy
+cimport cython
 from libc.stdlib cimport free, malloc
 from libc.string cimport memcpy
 
-cimport numpy
-import numpy
 numpy.import_array()
 
 from specfile_pxd cimport *
@@ -87,27 +93,61 @@ class Scan(object):
     '''    
     def __init__(self, specfile, scan_index):
         self._specfile = specfile
+        # unique index 1 - len(specfile)
         self.index = scan_index
+        # number: first value on #S line
+        self.number = specfile.number(scan_index)
+        # order can be > 1 if a same number is used mor than once in specfile
+        self.order = specfile.order(scan_index)
         
         self.data = self._specfile.data(self.index)
+        self.nlines, self.ncolumns = self.data.shape
         
         self.header_lines = self._specfile.scan_header(self.index)
-        '''List of header lines, including the leading "#L"'''
+        '''List of raw header lines, including the leading "#L"'''
+        
+        if self.record_exists_in_hdr('L'):
+            self.labels = self._specfile.labels(self.index)
         
         self.header_dict = {}
-        '''Dictionary of header values or strings (depending on the
-        header type)'''
+        '''Dictionary of header strings, keys without leading "#"'''
+        for line in self.header_lines:
+            match = re.search(r"#(\w+) *(.*)", line)
+            if match:
+                # header type 
+                hkey = match.group(1).lstrip("#").strip()
+                hvalue = match.group(2).strip()
+                self.header_dict[hkey] = hvalue
+            else:
+                # this shouldn't happen
+                print("Warning: unable to parse file header line " + line)
         
-        if self.record_exists_in_hdr('N'):
-            self.header_dict['N'] = self._specfile.columns(self.index)
-        if self.record_exists_in_hdr('S'):
-            self.header_dict['S'] = self._specfile.command(self.index)
-        if self.record_exists_in_hdr('L'):
-            self.header_dict['L'] = self._specfile.labels(self.index)
+        # Alternative: call dedicated function for each header
+        # (results will be different from previous solution, value types may
+        # be integers...)
+#         if self.record_exists_in_hdr('N'):
+#             self.header_dict['N'] = self._specfile.columns(self.index)
+#         if self.record_exists_in_hdr('S'):
+#             self.header_dict['S'] = self._specfile.command(self.index)
+#         if self.record_exists_in_hdr('L'):
+#             self.header_dict['L'] = self._specfile.labels(self.index)
             
         self.file_header_lines = self._specfile.file_header(self.index)
-        '''List of file header lines relevant to this scan, 
+        '''List of raw file header lines relevant to this scan, 
         including the leading "#L"'''
+        
+        self.file_header_dict = {}
+        '''Dictionary of file header strings, keys without leading "#"'''
+        for line in self.file_header_lines:
+            match = re.search(r"#(\w+) *(.*)", line)
+            if match:
+                # header type 
+                hkey = match.group(1).lstrip("#").strip()
+                hvalue = match.group(2).strip()
+                self.file_header_dict[hkey] = hvalue
+            else:
+                # this shouldn't happen
+                print("Warning: unable to parse file header line " + line)
             
             
     def record_exists_in_hdr(self, record):
@@ -375,7 +415,7 @@ cdef class SpecFile(object):
             for j in range(ncolumns):
                 ret_array[i, j] = mydata[i][j]    
         
-        free(mydata)
+        freeArrNZ(<void ***>&mydata, nlines)
         free(data_info)
         
         # nlines and ncolumns can be accessed as ret_array.shape
@@ -428,22 +468,23 @@ cdef class SpecFile(object):
         '''
         cdef: 
             char** lines
-        found = SfHeader(self.handle, 
-                        scan_index, 
-                        "",           # no pattern matching 
-                        &lines, 
-                        &self._error)
-        
+            
         self._error = SF_ERR_NO_ERRORS  
+        nlines = SfHeader(self.handle, 
+                          scan_index, 
+                          "",           # no pattern matching 
+                          &lines, 
+                          &self._error)
+        
         if self._error:
             raise IOError(self.get_error_string())
         
         lines_list = []
-        for i in range(found):
+        for i in range(nlines):
             line =  str(<bytes>lines[i].encode('utf-8'))
             lines_list.append(line)
                 
-        free(lines)
+        freeArrNZ(<void***>&lines, nlines)
         return lines_list
     
     def file_header(self, scan_index):
@@ -465,7 +506,7 @@ cdef class SpecFile(object):
 
         
         self._error = SF_ERR_NO_ERRORS
-        found = SfFileHeader(self.handle, 
+        nlines = SfFileHeader(self.handle, 
                              scan_index, 
                              "",          # no pattern matching
                              &lines, 
@@ -474,11 +515,11 @@ cdef class SpecFile(object):
             raise IOError(self.get_error_string())
 
         lines_list = []
-        for i in range(found):
+        for i in range(nlines):
             line =  str(<bytes>lines[i].encode('utf-8'))
             lines_list.append(line)
                 
-        free(lines)
+        freeArrNZ(<void***>&lines, nlines)
         return lines_list     
     
     def columns(self, scan_index): 
@@ -491,13 +532,13 @@ cdef class SpecFile(object):
         :rtype: int
         '''
         self._error = SF_ERR_NO_ERRORS  
-        no_columns = SfNoColumns(self.handle, 
-                                 scan_index, 
-                                 &self._error)
+        ncolumns = SfNoColumns(self.handle, 
+                               scan_index, 
+                               &self._error)
         if self._error:
             raise IOError(self.get_error_string())
         
-        return no_columns
+        return ncolumns
         
     def command(self, scan_index): 
         '''Return #S line (without #S and scan number)
@@ -505,7 +546,7 @@ cdef class SpecFile(object):
         :param scan_index: Unique scan index between 1 and len(self). 
         :type scan_index: int
         :return: S line
-        :rtype: utf-8 encoded bytes
+        :rtype: str
         '''
         self._error = SF_ERR_NO_ERRORS  
         s_record = <bytes> SfCommand(self.handle, 
@@ -522,7 +563,7 @@ cdef class SpecFile(object):
         :param scan_index: Unique scan index between 1 and len(self). 
         :type scan_index: int       
         :return: Date from #D line
-        :rtype: utf-8 encoded bytes
+        :rtype: str
         '''
         self._error = SF_ERR_NO_ERRORS  
         d_record = <bytes> SfDate(self.handle, 
@@ -545,21 +586,21 @@ cdef class SpecFile(object):
             char** all_labels
          
         self._error = SF_ERR_NO_ERRORS
-        num_labels = SfAllLabels(self.handle, 
-                                 scan_index, 
-                                 &all_labels,
-                                 &self._error)
+        nlabels = SfAllLabels(self.handle, 
+                              scan_index, 
+                              &all_labels,
+                              &self._error)
         
         if self._error:
             raise IOError(self.get_error_string())
          
         #labels_list = [None] * num_labels
         labels_list = []
-        for i in range(num_labels):
+        for i in range(nlabels):
             #labels_list[i] = str(<bytes>all_labels[i].encode('utf-8'))
             labels_list.append(str(<bytes>all_labels[i].encode('utf-8')))
             
-        free(all_labels) 
+        freeArrNZ(<void***>&all_labels, nlabels)
         return labels_list
      
 

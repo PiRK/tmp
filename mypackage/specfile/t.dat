@@ -1,8 +1,8 @@
 #F XCOM_CrossSections.dat
 #U00 This file is a direct conversion to specfile format of
-#U01 the XCOM selected-arrays output.
+#U01 the XCOM selected-arrays output.  
 #U02
-#U03 XCOM itself can be found at:
+#U03 XCOM itself can be found at:  
 #U04   http://www.nist.gov/pml/data/xcom/index.cfm
 
 #S 1 H
