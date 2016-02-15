@@ -24,6 +24,10 @@
 #
 #############################################################################*/
 #from PyMca5.PyMcaIO.specfilewrapper import Specfile
+
+# General comment: our scan indices go from 0 to N-1 while the C SpecFile 
+# library expects indices between 1 and N. 
+
 __author__ = "P. Knobel - ESRF Data Analysis"
 __contact__ = "pierre.knobel@esrf.fr"
 __license__ = "MIT"
@@ -38,12 +42,10 @@ Classes
 - :class:`Scan`
 """
 
-#TODO: 
-# - refactor error handling in SpecFile methods using decorators
-# - replace free() with freePtr() and freeArrNZ() (probable memory leaks
-#   with pointers to list of pointers) 
-# - file_header_dict
-# - scan_header_dict++
+# TODO: 
+# - Motors
+# - MCA
+
 
 import os.path
 import re
@@ -93,7 +95,7 @@ class Scan(object):
     '''    
     def __init__(self, specfile, scan_index):
         self._specfile = specfile
-        # unique index 1 - len(specfile)
+        # unique index 0 - len(specfile)-1
         self.index = scan_index
         # number: first value on #S line
         self.number = specfile.number(scan_index)
@@ -148,6 +150,9 @@ class Scan(object):
             else:
                 # this shouldn't happen
                 print("Warning: unable to parse file header line " + line)
+                
+        self.motor_names = self._specfile.all_motor_names(self.index)
+        self.motor_positions = self._specfile.all_motor_positions(self.index)
             
             
     def record_exists_in_hdr(self, record):
@@ -272,7 +277,7 @@ cdef class SpecFile(object):
                              SF_ERR_FILE_READ,
                              SF_ERR_FILE_WRITE):
             raise IOError(error_message)  
-        elif error_code in (SF_ERR_LINE_EMPTY,):     #???
+        elif error_code in (SF_ERR_LINE_EMPTY,):     # 
             raise ValueError(error_message)   
         elif error_code in (SF_ERR_MEMORY_ALLOC,):
             raise MemoryError(error_message) 
@@ -289,25 +294,25 @@ cdef class SpecFile(object):
         :rtype: int
         
         
-        Scan indices are increasing from 1 to len(self) in the order in which
-        they appear in the file.
+        Scan indices are increasing from 0 to len(self)-1 in the order in 
+        which they appear in the file.
         Scan numbers are defined by users and are not necessarily unique.
         The scan order for a given scan number increments each time the scan 
         number appers in a given file.'''
         idx = SfIndex(self.handle, scan_number, scan_order)
         if idx == -1:
             self._handle_error(SF_ERR_SCAN_NOT_FOUND)
-        return idx
+        return idx - 1
     
     def number(self, scan_index):
         '''Returns scan number from scan index.
         
-        :param scan_index: Unique scan index between 1 and len(self). 
+        :param scan_index: Unique scan index between 0 and len(self)-1. 
         :type scan_index: int
         :returns: User defined scan number.
         :rtype: int
         '''
-        idx = SfNumber(self.handle, scan_index)
+        idx = SfNumber(self.handle, scan_index + 1)
         if idx == -1:
             self._handle_error(SF_ERR_SCAN_NOT_FOUND)
         return idx
@@ -315,18 +320,19 @@ cdef class SpecFile(object):
     def order(self, scan_index):
         '''Returns scan order from scan index.
         
-        :param scan_index: Unique scan index between 1 and len(self). 
+        :param scan_index: Unique scan index between 0 and len(self)-1. 
         :type scan_index: int
         :returns: Scan order (sequential number incrementing each time a 
                  non-unique occurrence of a scan number is encountered).
         :rtype: int
         '''
-        ordr = SfOrder(self.handle, scan_index)
+        ordr = SfOrder(self.handle, scan_index + 1)
         if ordr == -1:
             self._handle_error(SF_ERR_SCAN_NOT_FOUND)
         return ordr
-                
-    def list(self): 
+      
+    # FIXME: substract 1 from indices returned by SfList?
+    def list(self):  
         '''Returns list (1D numpy array) of scan indices in SpecFile.
          
         :return: list of unique sequential indices of scans 
@@ -343,12 +349,12 @@ cdef class SpecFile(object):
         n_indexes = len(self)
         retArray = numpy.empty((n_indexes,),dtype=numpy.int)
         for i in range(n_indexes):
-            retArray[i] = indexes[i]
+            retArray[i] = indexes[i]-1
         free(indexes)
         
         return retArray
        
-    def __getitem__(self, key):   #TODO: add number.count key format
+    def __getitem__(self, key):
         '''Return a Scan object
         
         The Scan instance returned here keeps a reference to its parent SpecFile 
@@ -369,31 +375,29 @@ cdef class SpecFile(object):
         msg += "the unique scan index or a string 'N.M' with N being the scan"
         msg += "number and M the order (eg '2.3')"
         
-        try:
-            assert not isinstance(key, float)
-            scan_index = int(key)
-        except ValueError:
+        if isinstance(key, int):
+            scan_index = key 
+        elif isinstance(key, str):
             try:
                 (number, order) = map(int, key.split("."))
                 scan_index = self.index(number, order)
-            except ValueError:
+            except (ValueError, IndexError):
+                # self.index can raise an index error
+                # int() can raise a value error
                 raise KeyError(msg)
-            else:
-                scan_index = self.index(number, order)   
-        except:
-            raise IndexError(msg) 
+        else:
+            raise TypeError(msg) 
                 
-        if not 1 <= scan_index <= len(self): 
-            msg = "Scan index must be in range 1-%d" % len(self)
+        if not 0 <= scan_index < len(self): 
+            msg = "Scan index must be in range 0-%d" % (len(self) - 1)
             raise IndexError(msg)
         
         return Scan(self, scan_index)
     
-    
     def data(self, scan_index): 
         '''Returns data for the specified scan index.
         
-        :param scan_index: Unique scan index between 1 and len(self). 
+        :param scan_index: Unique scan index between 0 and len(self)-1. 
         :type scan_index: int
         :return: Complete scan data as a 2D array of doubles
         :rtype: numpy.ndarray
@@ -406,7 +410,7 @@ cdef class SpecFile(object):
             long nlines, ncolumns, regular
 
         sfdata_error = SfData(self.handle, 
-                              scan_index, 
+                              scan_index + 1, 
                               &mydata, 
                               &data_info, 
                               &error)
@@ -428,44 +432,11 @@ cdef class SpecFile(object):
         
         # nlines and ncolumns can be accessed as ret_array.shape
         return ret_array
-
-#     def data_line(self, scan_index, line_index): 
-#         '''Returns data for a given line of the specified scan.
-#         
-#         :param scan_index: Unique scan index between 1 and len(self). 
-#         :type scan_index: int
-#         :param line_index: Index of data line to retrieve (starting with 1)
-#         :type line_index: int
-#         :return: Line data as a 1D array of doubles
-#         :rtype: numpy.ndarray 
-#         '''   
-#         cdef: 
-#             double* data_line
-#             int j
-#             int error = SF_ERR_NO_ERRORS
-#             
-#         ncolumns =  SfDataLine(self.handle, 
-#                                scan_index, 
-#                                line_index, 
-#                                &data_line, 
-#                                &error)
-#         
-#         self._handle_error(error)
-#         
-#         cdef numpy.ndarray ret_array = numpy.empty((ncolumns,), 
-#                                                    dtype=numpy.double)
-# 
-#         for j in range(ncolumns):
-#             ret_array[j] = data_line[j]  
-#         
-#         free(data_line)
-#         
-#         return ret_array
     
     def scan_header(self, scan_index):
         '''Return list of scan header lines.
         
-        :param scan_index: Unique scan index between 1 and len(self). 
+        :param scan_index: Unique scan index between 0 and len(self)-1. 
         :type scan_index: int
         :return: List of raw scan header lines, including the leading "#L"
         :rtype: list of str
@@ -475,7 +446,7 @@ cdef class SpecFile(object):
             int error = SF_ERR_NO_ERRORS
 
         nlines = SfHeader(self.handle, 
-                          scan_index, 
+                          scan_index + 1, 
                           "",           # no pattern matching 
                           &lines, 
                           &error)
@@ -499,7 +470,7 @@ cdef class SpecFile(object):
         A file header applies to all subsequent scans, until a new file
         header is defined.
         
-        :param scan_index: Unique scan index between 1 and len(self). 
+        :param scan_index: Unique scan index between 0 and len(self)-1. 
         :type scan_index: int
         :return: List of raw file header lines, including the leading "#L"
         :rtype: list of str
@@ -509,7 +480,7 @@ cdef class SpecFile(object):
             int error = SF_ERR_NO_ERRORS
 
         nlines = SfFileHeader(self.handle, 
-                             scan_index, 
+                             scan_index + 1, 
                              "",          # no pattern matching
                              &lines, 
                              &error)
@@ -527,7 +498,7 @@ cdef class SpecFile(object):
         '''Return number of columns in a scan from the #N header line
         (without #N and scan number)
         
-        :param scan_index: Unique scan index between 1 and len(self). 
+        :param scan_index: Unique scan index between 0 and len(self)-1. 
         :type scan_index: int
         :return: Number of columns in scan from #N record
         :rtype: int
@@ -536,7 +507,7 @@ cdef class SpecFile(object):
             int error = SF_ERR_NO_ERRORS
             
         ncolumns = SfNoColumns(self.handle, 
-                               scan_index, 
+                               scan_index + 1, 
                                &error)
         self._handle_error(error)
         
@@ -545,7 +516,7 @@ cdef class SpecFile(object):
     def command(self, scan_index): 
         '''Return #S line (without #S and scan number)
         
-        :param scan_index: Unique scan index between 1 and len(self). 
+        :param scan_index: Unique scan index between 0 and len(self)-1. 
         :type scan_index: int
         :return: S line
         :rtype: str
@@ -554,7 +525,7 @@ cdef class SpecFile(object):
             int error = SF_ERR_NO_ERRORS
             
         s_record = <bytes> SfCommand(self.handle, 
-                                     scan_index, 
+                                     scan_index + 1, 
                                      &error)
         self._handle_error(error)
 
@@ -563,7 +534,7 @@ cdef class SpecFile(object):
     def date(self, scan_index):  
         '''Return date from #D line
 
-        :param scan_index: Unique scan index between 1 and len(self). 
+        :param scan_index: Unique scan index between 0 and len(self)-1. 
         :type scan_index: int       
         :return: Date from #D line
         :rtype: str
@@ -572,7 +543,7 @@ cdef class SpecFile(object):
             int error = SF_ERR_NO_ERRORS
             
         d_record = <bytes> SfDate(self.handle, 
-                                  scan_index,
+                                  scan_index + 1,
                                   &error)
         self._handle_error(error)
         
@@ -581,7 +552,7 @@ cdef class SpecFile(object):
     def labels(self, scan_index):
         '''Return all labels from #L line
           
-        :param scan_index: Unique scan index between 1 and len(self). 
+        :param scan_index: Unique scan index between 0 and len(self)-1. 
         :type scan_index: int     
         :return: All labels from #L line
         :rtype: list of strings
@@ -591,7 +562,7 @@ cdef class SpecFile(object):
             int error = SF_ERR_NO_ERRORS
 
         nlabels = SfAllLabels(self.handle, 
-                              scan_index, 
+                              scan_index + 1, 
                               &all_labels,
                               &error)
         self._handle_error(error)
@@ -605,5 +576,54 @@ cdef class SpecFile(object):
         freeArrNZ(<void***>&all_labels, nlabels)
         return labels_list
      
-     
+    def all_motor_names(self, scan_index):
+        '''Return all motor names from #O lines
+          
+        :param scan_index: Unique scan index between 0 and len(self)-1. 
+        :type scan_index: int     
+        :return: All motor names
+        :rtype: list of strings
+        ''' 
+        cdef: 
+            char** all_motors
+            int error = SF_ERR_NO_ERRORS
+         
+        nmotors = SfAllMotors(self.handle, 
+                              scan_index + 1, 
+                              &all_motors,
+                              &error)
+        self._handle_error(error)
+        
+        motors_list = []
+        for i in range(nmotors):
+            motors_list.append(str(<bytes>all_motors[i].encode('utf-8')))
+        
+        freeArrNZ(<void***>&all_motors, nmotors)
+        return motors_list
+         
+    def all_motor_positions(self, scan_index):
+        '''Return all motor positions
+          
+        :param scan_index: Unique scan index between 0 and len(self)-1. 
+        :type scan_index: int     
+        :return: All motor names
+        :rtype: list of double
+        ''' 
+        cdef: 
+            double* motor_positions
+            int error = SF_ERR_NO_ERRORS
+         
+        nmotors = SfAllMotorPos(self.handle, 
+                                scan_index + 1, 
+                                &motor_positions,
+                                &error)
+        self._handle_error(error)
+        
+        motor_positions_list = []
+        for i in range(nmotors):
+            motor_positions_list.append(motor_positions[i])
+        
+        free(motor_positions)
+        return motor_positions_list
+    
 

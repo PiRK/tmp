@@ -3,46 +3,48 @@ import unittest
 
 from specfile import *
 
-filename = "t.dat"
-sf = SpecFile(filename)
-scan2_1 = sf["2.1"]
-scan2 = sf[2]
+filename1 = "t.dat"
+sf1 = SpecFile(filename1)
+scan2_1 = sf1["2.1"]
+scan2 = sf1[1]
+
+sf2 = SpecFile("Dry_run_feb_2016.dat")
+scan_w_motors = sf2[1]
 
 
 class TestSpecFile(unittest.TestCase):
     def test_open(self):
-        self.assertIsInstance(SpecFile(filename), SpecFile)
+        self.assertIsInstance(SpecFile(filename1), SpecFile)
         with self.assertRaises(IOError):
             sf2 = SpecFile("doesnt_exist.dat")
         
     def test_number_of_scans(self):
-        self.assertEqual(100, len(sf))
+        self.assertEqual(100, len(sf1))
         
     def test_list_of_scan_indices(self):
-        self.assertEqual(len(sf.list()), 100)
-        self.assertEqual(max(sf.list()), 100)
-        self.assertEqual(min(sf.list()), 1)
+        self.assertEqual(len(sf1.list()), 100)
+        self.assertEqual(max(sf1.list()), 99)
+        self.assertEqual(min(sf1.list()), 0)
         
     def test_index_number_order(self):
-        self.assertEqual(sf.index(3, 1), 3)
-        self.assertEqual(sf.number(4), 4)
-        self.assertEqual(sf.order(4), 1) 
+        self.assertEqual(sf1.index(3, 1), 2)
+        self.assertEqual(sf1.number(4), 5)
+        self.assertEqual(sf1.order(4), 1) 
         with self.assertRaises(IndexError):
-            sf.index(3, 2)
+            sf1.index(3, 2)
         
     def test_getitem(self):
-        self.assertIsInstance(sf[2], Scan)
-        self.assertIsInstance(sf["2.1"], Scan)
-        self.assertEqual(sf["3"].index, sf[3].index)   # should we allow int(str) indexing?
+        self.assertIsInstance(sf1[2], Scan)
+        self.assertIsInstance(sf1["2.1"], Scan)
         # int out of range
         with self.assertRaisesRegexp(IndexError, 'Scan index must be in ran'):
-            scan108 = sf[108]
+            scan108 = sf1[107]
         # float indexing not allowed
-        with self.assertRaisesRegexp(IndexError, 'The scan identification k'):
-            scan1 = sf[1.2]
+        with self.assertRaisesRegexp(TypeError, 'The scan identification k'):
+            scan1 = sf1[1.2]
         # non existant scan with "N.M" indexing 
-        with self.assertRaisesRegexp(IndexError, 'Scan not found error \( S'):
-            scan3_2 = sf["3.2"]
+        with self.assertRaises(KeyError):
+            scan3_2 = sf1["3.2"]
                 
             
 class TestScan(unittest.TestCase):
@@ -50,7 +52,7 @@ class TestScan(unittest.TestCase):
         self.assertEqual(scan2.header_dict['S'],
                          scan2_1.header_dict['S'])
         self.assertEqual(scan2.header_dict['S'], "2 He")
-        self.assertNotEqual(sf["3.1"].header_dict['S'], 
+        self.assertNotEqual(sf1["3.1"].header_dict['S'], 
                             scan2.header_dict['S'])
         self.assertEqual(scan2.header_dict['N'], '7')
         self.assertEqual(scan2.header_lines[1], '#N 7')
@@ -82,6 +84,13 @@ class TestScan(unittest.TestCase):
         self.assertEqual(scan2.ncolumns, 7)
         self.assertAlmostEqual(numpy.sum(scan2.data), 
                                439208090.16178566)
+        
+    def test_motors(self):
+        self.assertEqual(len(scan_w_motors.motor_names), 158)
+        self.assertEqual(len(scan_w_motors.motor_positions), 158)
+        self.assertAlmostEqual(sum(scan_w_motors.motor_positions), 
+                               66338.5523591354)
+        self.assertEqual(scan_w_motors.motor_names[1], 'Pslit Up')
 
 
 def suite():
