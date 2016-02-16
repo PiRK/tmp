@@ -217,6 +217,7 @@ cdef class SpecFile(object):
         SpecFileHandle *handle   #SpecFile struct in SpecFile.h
         str filename
         int __open_failed
+        int i
     
    
     def __cinit__(self, filename):
@@ -232,7 +233,9 @@ cdef class SpecFile(object):
             self._handle_error(error)
        
     def __init__(self, filename):
-        self.filename = filename      
+        self.filename = filename
+        # iterator counter
+        self.i = 0
         
     def __dealloc__(self):
         '''Destructor: Calls SfClose(self.handle)'''
@@ -244,6 +247,17 @@ cdef class SpecFile(object):
     def __len__(self):
         '''Returns the number of scans in the SpecFile'''
         return SfScanNo(self.handle)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        'Returns the next value till current is lower than high'
+        if self.i >= len(self):
+            raise StopIteration
+        else:
+            self.i += 1
+            return Scan(self, self.i - 1)
         
     def _get_error_string(self, error_code):
         '''Returns the error message corresponding to the error code.

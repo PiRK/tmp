@@ -45,6 +45,15 @@ class TestSpecFile(unittest.TestCase):
         # non existant scan with "N.M" indexing 
         with self.assertRaises(KeyError):
             scan3_2 = sf1["3.2"]
+
+    def test_iterator(self):
+        i=0
+        for scan in sf1:
+            i += 1
+        # number of returned scans
+        self.assertEqual(i, len(sf1))
+        # iterator index
+        self.assertEqual(sf1.i, len(sf1)-1)
                 
             
 class TestScan(unittest.TestCase):
